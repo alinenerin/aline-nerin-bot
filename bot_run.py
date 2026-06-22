@@ -262,10 +262,10 @@ def handle_msg(msg):
         file_id = photo[-1]["file_id"]
         # verifica se tá aguardando amostra
         if pending.get(uid) == "aguardando_amostra":
-            AMOSTRA_FILE_ID = file_id
+            globals()["AMOSTRA_FILE_ID"] = file_id
             pending.pop(uid, None)
             save_state()
-            send(uid, f"✅ Foto amostra salva! Os clientes vão receber essa foto quando pedirem prévia 🔥")
+            send(uid, "✅ Foto amostra salva! Os clientes vão receber essa foto quando pedirem prévia 🔥")
         else:
             PHOTO_URL = file_id
             VIDEO_URL = None
@@ -314,10 +314,11 @@ def handle_msg(msg):
             resposta = groq_resposta(uid, text)
             if resposta and "ENVIAR_AMOSTRA" in resposta:
                 # cliente pediu amostra
-                if AMOSTRA_FILE_ID:
+                _amostra = globals().get("AMOSTRA_FILE_ID")
+                if _amostra:
                     requests.post(f"{BASE}/sendPhoto", json={
                         "chat_id": uid,
-                        "photo": AMOSTRA_FILE_ID,
+                        "photo": _amostra,
                         "caption": "Olha só o que eu tenho pra você… 😏🔥\nIsso é só uma provinha do que te espera no pack completo bb 😈",
                         "parse_mode": "Markdown",
                         "reply_markup": MENU_KB
