@@ -1,4 +1,4 @@
-import requests, time, logging, os
+import requests, time, logging, os, json
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
@@ -8,13 +8,35 @@ PIX_KEY = "17981116780"
 PACK_PRICE = "R$25,00"
 VIP_PRICE = "R$39,90"
 BASE = f"https://api.telegram.org/bot{TOKEN}"
+STATE_FILE = "state.json"
 
-# Mídia de apresentação da Aline Nerin (file_id salvo automaticamente)
-PHOTO_URL = None   # file_id de foto
-VIDEO_URL = None   # file_id de vídeo (tem prioridade sobre foto)
+# ── PERSISTÊNCIA ─────────────────────────────────────────────────────────────
 
-owner_id = None
-pending = {}
+def load_state():
+    global PHOTO_URL, VIDEO_URL, owner_id
+    if os.path.exists(STATE_FILE):
+        try:
+            d = json.load(open(STATE_FILE))
+            PHOTO_URL = d.get("photo_url")
+            VIDEO_URL = d.get("video_url")
+            owner_id  = d.get("owner_id")
+            logging.info(f"Estado carregado: owner={owner_id} video={bool(VIDEO_URL)} foto={bool(PHOTO_URL)}")
+        except Exception as e:
+            logging.error(f"Erro ao carregar state: {e}")
+
+def save_state():
+    try:
+        json.dump({"photo_url": PHOTO_URL, "video_url": VIDEO_URL, "owner_id": owner_id}, open(STATE_FILE, "w"))
+    except Exception as e:
+        logging.error(f"Erro ao salvar state: {e}")
+
+# Mídia de apresentação da Aline Nerin (persistida em state.json)
+PHOTO_URL = None
+VIDEO_URL = None
+owner_id  = None
+pending   = {}
+
+load_state()
 
 MENU_KB = {"inline_keyboard": [
     [{"text": "🔥 Pack Exclusivo — R$25", "callback_data": "pack"}],
@@ -168,6 +190,7 @@ def handle_msg(msg):
 
     elif text == "/owner":
         owner_id = uid
+        save_state()
         send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nAgora você recebe todos os comprovantes aqui 🔥")
 
     elif text and text.startswith("/setfoto") and uid == owner_id:
@@ -179,17 +202,17 @@ def handle_msg(msg):
             send(uid, "Uso: /setfoto <file_id da foto>")
 
     elif photo and uid == owner_id:
-        # Dona enviou foto → usar como apresentação
         file_id = photo[-1]["file_id"]
         PHOTO_URL = file_id
         VIDEO_URL = None
+        save_state()
         send(uid, f"✅ Foto salva como apresentação do bot!\n\nfile_id: `{file_id}`")
 
     elif video and uid == owner_id:
-        # Dona enviou vídeo → usar como apresentação (prioridade sobre foto)
         file_id = video["file_id"]
         VIDEO_URL = file_id
         PHOTO_URL = None
+        save_state()
         send(uid, f"✅ Vídeo salvo como apresentação do bot! 🔥\n\nTodo cliente que entrar vai ver esse vídeo primeiro 😈\n\nfile_id: `{file_id}`")
 
     elif (photo or doc) and uid != owner_id:
