@@ -254,17 +254,17 @@ def handle_cb(cb):
     answer_cb(cb["id"])
 
     if data == "menu":
-        edit_msg(uid, mid, WELCOME_TEXT, MENU_KB)
+        send_welcome(uid)
     elif data == "pack":
         pending[uid] = "pack"
-        edit_msg(uid, mid, PACK_TEXT, buy_kb("pack"))
+        send(uid, PACK_TEXT, buy_kb("pack"))
     elif data == "vip":
         pending[uid] = "vip"
-        edit_msg(uid, mid, VIP_TEXT, buy_kb("vip"))
+        send(uid, VIP_TEXT, buy_kb("vip"))
     elif data == "pagar_pack":
-        edit_msg(uid, mid, PIX_PACK_TEXT, back_kb())
+        send(uid, PIX_PACK_TEXT, back_kb())
     elif data == "pagar_vip":
-        edit_msg(uid, mid, PIX_VIP_TEXT, back_kb())
+        send(uid, PIX_VIP_TEXT, back_kb())
     elif data.startswith("liberar_"):
         parts = data.split("_")
         cid = int(parts[1])
@@ -273,11 +273,11 @@ def handle_cb(cb):
             send(cid, VIP_LIBERADO_TEXT)
         else:
             send(cid, PACK_LIBERADO_TEXT)
-        edit_msg(uid, mid, "✅ Acesso liberado com sucesso!")
+        send(uid, "✅ Acesso liberado com sucesso!")
     elif data.startswith("recusar_"):
         cid = int(data.split("_")[1])
         send(cid, "❌ Não consegui identificar seu pagamento, bb. Manda o comprovante novamente? 😘")
-        edit_msg(uid, mid, "❌ Pagamento recusado.")
+        send(uid, "❌ Pagamento recusado.")
 
 # ── SERVIDOR HTTP (necessário para Web Service no Render) ────────────────────
 
