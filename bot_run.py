@@ -10,6 +10,8 @@ ALINE_SYSTEM = (
     "Você fala de forma informal, usa emojis, chama os clientes de 'bb', 'gostoso', 'amor'. "
     "Seu objetivo é seduzir o cliente e convencê-lo a comprar o Pack (R$25) ou o VIP (R$39,90/mês). "
     "Quando o cliente demonstrar interesse em comprar, diga para clicar no menu abaixo. "
+    "Quando o cliente pedir amostra, prévia, foto de graça ou quiser ver antes de comprar, "
+    "responda exatamente com a palavra ENVIAR_AMOSTRA (só isso, nada mais). "
     "Nunca fale que é uma IA. Nunca saia do personagem. "
     "Respostas curtas, máximo 3 linhas. Sempre termine com um emoji provocante."
 )
@@ -54,22 +56,22 @@ STATE_FILE = "state.json"
 VIDEO_FILE_ID_FIXO = "BAACAgEAAxkBAAMcajiBq-Le8RoLJb-E_Eh-vxFxWDwAApwHAAJt5chFGM5JFCKDlaw8BA"
 
 def load_state():
-    global PHOTO_URL, VIDEO_URL, owner_id
+    global PHOTO_URL, VIDEO_URL, owner_id, AMOSTRA_FILE_ID
     VIDEO_URL = VIDEO_FILE_ID_FIXO  # sempre garante o vídeo fixo
     if os.path.exists(STATE_FILE):
         try:
             d = json.load(open(STATE_FILE))
             PHOTO_URL = d.get("photo_url")
-            # só sobrescreve VIDEO_URL se vier algo salvo
             VIDEO_URL = d.get("video_url") or VIDEO_FILE_ID_FIXO
             owner_id  = d.get("owner_id")
-            logging.info(f"Estado carregado: owner={owner_id} video={bool(VIDEO_URL)} foto={bool(PHOTO_URL)}")
+            AMOSTRA_FILE_ID = d.get("amostra_file_id")
+            logging.info(f"Estado carregado: owner={owner_id} video={bool(VIDEO_URL)} amostra={bool(AMOSTRA_FILE_ID)}")
         except Exception as e:
             logging.error(f"Erro ao carregar state: {e}")
 
 def save_state():
     try:
-        json.dump({"photo_url": PHOTO_URL, "video_url": VIDEO_URL, "owner_id": owner_id}, open(STATE_FILE, "w"))
+        json.dump({"photo_url": PHOTO_URL, "video_url": VIDEO_URL, "owner_id": owner_id, "amostra_file_id": AMOSTRA_FILE_ID}, open(STATE_FILE, "w"))
     except Exception as e:
         logging.error(f"Erro ao salvar state: {e}")
 
@@ -78,6 +80,7 @@ PHOTO_URL = None
 VIDEO_URL = VIDEO_FILE_ID_FIXO
 owner_id  = None
 pending   = {}
+AMOSTRA_FILE_ID = None  # foto amostra gratuita
 
 load_state()
 
@@ -235,7 +238,11 @@ def handle_msg(msg):
     elif text == "/owner":
         owner_id = uid
         save_state()
-        send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nAgora você recebe todos os comprovantes aqui 🔥")
+        send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nAgora você recebe todos os comprovantes aqui 🔥\n\nComandos disponíveis:\n/setamostra — cadastrar foto amostra (envie o comando e depois a foto)")
+
+    elif text == "/setamostra" and uid == owner_id:
+        send(uid, "📸 Agora manda a foto que vai ser a amostra gratuita pros clientes!")
+        pending[uid] = "aguardando_amostra"
 
     elif text and text.startswith("/setfoto") and uid == owner_id:
         parts = text.split(maxsplit=1)
@@ -247,10 +254,17 @@ def handle_msg(msg):
 
     elif photo and uid == owner_id:
         file_id = photo[-1]["file_id"]
-        PHOTO_URL = file_id
-        VIDEO_URL = None
-        save_state()
-        send(uid, f"✅ Foto salva como apresentação do bot!\n\nfile_id: `{file_id}`")
+        # verifica se tá aguardando amostra
+        if pending.get(uid) == "aguardando_amostra":
+            AMOSTRA_FILE_ID = file_id
+            pending.pop(uid, None)
+            save_state()
+            send(uid, f"✅ Foto amostra salva! Os clientes vão receber essa foto quando pedirem prévia 🔥\n\nfile_id: `{file_id}`")
+        else:
+            PHOTO_URL = file_id
+            VIDEO_URL = None
+            save_state()
+            send(uid, f"✅ Foto salva como apresentação do bot!\n\nfile_id: `{file_id}`")
 
     elif video and uid == owner_id:
         file_id = video["file_id"]
@@ -292,7 +306,20 @@ def handle_msg(msg):
         # qualquer outra mensagem de texto → responde como Aline Nerin via IA
         if text and uid != owner_id:
             resposta = groq_resposta(uid, text)
-            if resposta:
+            if resposta and "ENVIAR_AMOSTRA" in resposta:
+                # cliente pediu amostra
+                if AMOSTRA_FILE_ID:
+                    requests.post(f"{BASE}/sendPhoto", json={
+                        "chat_id": uid,
+                        "photo": AMOSTRA_FILE_ID,
+                        "caption": "Olha só o que eu tenho pra você… 😏🔥\nIsso é só uma provinha do que te espera no pack completo bb 😈",
+                        "parse_mode": "Markdown",
+                        "reply_markup": MENU_KB
+                    }, timeout=15)
+                    logging.info(f"amostra→{uid} enviada")
+                else:
+                    send(uid, "Ai bb, a prévia tá chegando… por enquanto dá uma olhada no que tenho pra te oferecer 😏🔥", MENU_KB)
+            elif resposta:
                 send(uid, resposta, MENU_KB)
             else:
                 send(uid, DESCONHECIDO_TEXT, MENU_KB)
