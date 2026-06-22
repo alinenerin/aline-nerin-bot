@@ -240,11 +240,11 @@ def handle_msg(msg):
         save_state()
         send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nAgora você recebe todos os comprovantes aqui 🔥\n\nComandos disponíveis:\n/setamostra — cadastrar foto amostra (envie o comando e depois a foto)")
 
-    elif text == "/setamostra" and uid == owner_id:
+    elif text == "/setamostra" and int(uid) == int(owner_id or 0):
         send(uid, "📸 Agora manda a foto que vai ser a amostra gratuita pros clientes!")
         pending[uid] = "aguardando_amostra"
 
-    elif text and text.startswith("/setfoto") and uid == owner_id:
+    elif text and text.startswith("/setfoto") and int(uid) == int(owner_id or 0):
         parts = text.split(maxsplit=1)
         if len(parts) == 2:
             PHOTO_URL = parts[1].strip()
@@ -252,7 +252,7 @@ def handle_msg(msg):
         else:
             send(uid, "Uso: /setfoto <file_id da foto>")
 
-    elif photo and uid == owner_id:
+    elif photo and int(uid) == int(owner_id or 0):
         file_id = photo[-1]["file_id"]
         # verifica se tá aguardando amostra
         if pending.get(uid) == "aguardando_amostra":
@@ -266,7 +266,7 @@ def handle_msg(msg):
             save_state()
             send(uid, f"✅ Foto salva como apresentação do bot!\n\nfile_id: `{file_id}`")
 
-    elif video and uid == owner_id:
+    elif video and int(uid) == int(owner_id or 0):
         file_id = video["file_id"]
         VIDEO_URL = file_id
         PHOTO_URL = None
@@ -274,7 +274,7 @@ def handle_msg(msg):
         logging.info(f"VIDEO_FILE_ID: {file_id}")
         send(uid, f"✅ Vídeo salvo como apresentação do bot! 🔥\n\nTodo cliente que entrar vai ver esse vídeo primeiro 😈\n\nfile\_id: `{file_id}`")
 
-    elif (photo or doc) and uid != owner_id:
+    elif (photo or doc) and int(uid) != int(owner_id or 0):
         # Cliente enviou comprovante (foto)
         tipo = pending.get(uid, "vip")
         send(uid, COMPROVANTE_TEXT)
@@ -288,7 +288,7 @@ def handle_msg(msg):
                 "reply_markup": admin_kb(uid, tipo)
             }, timeout=10)
 
-    elif doc and uid != owner_id:
+    elif doc and int(uid) != int(owner_id or 0):
         # Cliente enviou comprovante (documento)
         tipo = pending.get(uid, "vip")
         send(uid, COMPROVANTE_TEXT)
@@ -304,7 +304,7 @@ def handle_msg(msg):
 
     else:
         # qualquer outra mensagem de texto → responde como Aline Nerin via IA
-        if text and uid != owner_id:
+        if text and int(uid) != int(owner_id or 0):
             resposta = groq_resposta(uid, text)
             if resposta and "ENVIAR_AMOSTRA" in resposta:
                 # cliente pediu amostra
@@ -323,7 +323,7 @@ def handle_msg(msg):
                 send(uid, resposta, MENU_KB)
             else:
                 send(uid, DESCONHECIDO_TEXT, MENU_KB)
-        elif uid != owner_id:
+        elif int(uid) != int(owner_id or 0):
             send(uid, DESCONHECIDO_TEXT, MENU_KB)
 
 def handle_cb(cb):
