@@ -223,7 +223,7 @@ def send_welcome(cid):
         send(cid, WELCOME_TEXT, MENU_KB)
 
 def handle_msg(msg):
-    global owner_id, PHOTO_URL, VIDEO_URL
+    global owner_id, PHOTO_URL, VIDEO_URL, AMOSTRA_FILE_ID
     uid = msg["from"]["id"]
     text = msg.get("text", "")
     photo = msg.get("photo")
