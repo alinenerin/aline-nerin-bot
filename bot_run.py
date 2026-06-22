@@ -405,11 +405,21 @@ def handle_cb(cb):
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Aline Nerin Bot - Online!")
+        if self.path == "/state":
+            try:
+                data = open(STATE_FILE).read().encode()
+            except:
+                data = b"{}"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(data)
+        else:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Aline Nerin Bot - Online!")
     def log_message(self, *args):
-        pass  # silencia logs HTTP
+        pass
 
 def start_health_server():
     port = int(os.environ.get("PORT", 10000))
