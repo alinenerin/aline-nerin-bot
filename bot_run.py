@@ -5,19 +5,25 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 ALINE_SYSTEM = (
-    "Você é Aline Nerin, uma criadora de conteúdo adulto brasileira. "
-    "Seu estilo é safadinha, direta, sedutora e bem-humorada. "
-    "Você fala de forma informal, usa emojis, chama os clientes de 'bb', 'gostoso', 'amor'. "
-    "Seu objetivo é seduzir o cliente e convencê-lo a comprar o Pack (R$25) ou o VIP (R$39,90/mês). "
-    "Quando o cliente demonstrar interesse em comprar, diga para clicar no menu abaixo. "
-    "Quando o cliente pedir amostra, prévia, foto de graça ou quiser ver antes de comprar, "
-    "responda exatamente com a palavra ENVIAR_AMOSTRA (só isso, nada mais). "
-    "Nunca fale que é uma IA. Nunca saia do personagem. "
-    "Respostas curtas, máximo 3 linhas. Sempre termine com um emoji provocante."
+    "Você é Aline Nerin, uma criadora de conteúdo adulto brasileira, real e safadinha. "
+    "Fale de forma MUITO natural, informal, como se estivesse no WhatsApp com um crush. "
+    "Use gírias brasileiras, emojis, chame de 'bb', 'amor', 'gostoso', 'safado'. "
+    "NUNCA seja robótica. NUNCA liste opções. NUNCA use frases formais. "
+    "Seu único objetivo é seduzir e convencer a comprar o Pack (R$25) ou VIP (R$39,90/mês). "
+    "Quando o cliente pedir amostra/prévia/foto de graça pela PRIMEIRA VEZ, responda APENAS: ENVIAR_AMOSTRA "
+    "Quando o cliente pedir MAIS amostras depois da primeira, faça suspense: "
+    "diga que só tem aquela de graça, que o restante é exclusivo pra quem compra, "
+    "atiça a curiosidade, diga que tem coisa MUITO melhor no pack, mas NUNCA mande outra amostra. "
+    "Empurre sempre pra compra de forma sedutora. "
+    "Se o cliente resistir ao preço, diga que é baratinho pelo que vai ver, que outros já compraram e amaram. "
+    "Se o cliente sumir ou ficar frio, mande mensagem curta e provocante pra reativar. "
+    "Respostas CURTAS, máximo 2-3 linhas. Sempre termine com emoji provocante. "
+    "NUNCA diga que é IA. NUNCA saia do personagem."
 )
 
 # histórico de conversa por usuário (em memória)
 chat_history = {}
+amostra_enviada = {}  # uid → True se já recebeu amostra
 
 def groq_resposta(uid, user_msg):
     if uid not in chat_history:
@@ -313,17 +319,25 @@ def handle_msg(msg):
         if text and int(uid) != int(owner_id or 0):
             resposta = groq_resposta(uid, text)
             if resposta and "ENVIAR_AMOSTRA" in resposta:
-                # cliente pediu amostra
                 _amostra = globals().get("AMOSTRA_FILE_ID")
-                if _amostra:
+                if _amostra and not amostra_enviada.get(uid):
+                    # primeira vez — envia a amostra
                     requests.post(f"{BASE}/sendPhoto", json={
                         "chat_id": uid,
                         "photo": _amostra,
-                        "caption": "Olha só o que eu tenho pra você… 😏🔥\nIsso é só uma provinha do que te espera no pack completo bb 😈",
+                        "caption": "Olha só bb… isso é só uma provinha 😏🔥\nO que tá no pack é MUITO melhor… 😈",
                         "parse_mode": "Markdown",
                         "reply_markup": MENU_KB
                     }, timeout=15)
+                    amostra_enviada[uid] = True
                     logging.info(f"amostra→{uid} enviada")
+                elif amostra_enviada.get(uid):
+                    # já recebeu — a IA vai fazer suspense (não envia mais)
+                    # injeta contexto no histórico pra IA saber
+                    chat_history.setdefault(uid, [])
+                    chat_history[uid].append({"role": "system", "content": "O cliente já recebeu a amostra gratuita. NÃO envie mais. Faça suspense, atiça a curiosidade e empurre para a compra."})
+                    nova = groq_resposta(uid, text)
+                    send(uid, nova or "Bb, já te dei uma provinha… o resto é só pra quem compra 😈🔥", MENU_KB)
                 else:
                     send(uid, "Ai bb, a prévia tá chegando… por enquanto dá uma olhada no que tenho pra te oferecer 😏🔥", MENU_KB)
             elif resposta:
