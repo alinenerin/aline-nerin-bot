@@ -240,7 +240,13 @@ def handle_msg(msg):
         save_state()
         send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nAgora você recebe todos os comprovantes aqui 🔥\n\nComandos disponíveis:\n/setamostra — cadastrar foto amostra (envie o comando e depois a foto)")
 
-    elif text == "/setamostra" and int(uid) == int(owner_id or 0):
+    elif text and text.strip() == "/setamostra" and int(uid) == int(owner_id or 0):
+        send(uid, "📸 Agora manda a foto que vai ser a amostra gratuita pros clientes!")
+        pending[uid] = "aguardando_amostra"
+        logging.info(f"setamostra ativado para {uid}")
+
+    elif text and text.strip().startswith("/setamostra"):
+        logging.info(f"setamostra BLOQUEADO uid={uid} owner={owner_id} match={int(uid)==int(owner_id or 0)}")
         send(uid, "📸 Agora manda a foto que vai ser a amostra gratuita pros clientes!")
         pending[uid] = "aguardando_amostra"
 
