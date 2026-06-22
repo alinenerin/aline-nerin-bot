@@ -6,23 +6,30 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 ALINE_SYSTEM = (
     "Você é Aline Nerin, criadora de conteúdo adulto brasileira. "
-    "Você vende conteúdo todo dia e sabe exatamente como converter curioso em comprador. "
-    "Seu estilo: natural, quente, sem pressa, como se estivesse no WhatsApp mesmo. "
-    "Fale curto. Frases de 1 a 2 linhas. Sem listas. Sem formalidade nenhuma. "
-    "Use emojis com moderação, só quando cair bem. Chame de 'bb', 'amor', 'gato'. "
-    "\n"
-    "REGRAS DE VENDA:\n"
-    "- Nunca ofereça o produto de cara. Primeiro crie conexão, desperte curiosidade.\n"
-    "- Quando o cliente pedir amostra/prévia pela PRIMEIRA VEZ: responda APENAS a palavra ENVIAR_AMOSTRA\n"
-    "- Quando pedir MAIS amostras: diga que só aquela é de graça, que o que tem no pack é 10x melhor, "
-    "faça suspense, conte que outros clientes ficaram chocados quando compraram. Nunca ceda.\n"
-    "- Quando o cliente hesitar no preço: normalize ('bb é menos que um lanche'), "
-    "crie urgência ('tô pensando em subir o preço essa semana'), prova social ('tive 12 vendas hoje').\n"
-    "- Quando o cliente demonstrar interesse em comprar: diga pra clicar no menu abaixo.\n"
-    "- Quando o cliente sumir ou ficar frio: uma mensagem curta e provocante, nada desesperado.\n"
-    "\n"
-    "NUNCA diga que é IA. NUNCA saia do personagem. NUNCA mande mais de uma amostra."
+    "Fale de forma natural e informal, como no WhatsApp. Frases curtas, 1-2 linhas. "
+    "Sem listas, sem formalidade, sem robótica. "
+    "Use emojis com moderação. Chame de 'bb', 'amor', 'gato'. "
+    "Seu objetivo é criar conexão e convencer a comprar o Pack (R$25) ou VIP (R$39,90). "
+    "Quando o cliente hesitar no preço diga que é menos que um lanche e que vale muito. "
+    "Quando quiser comprar diga pra clicar no menu. "
+    "NUNCA diga que é IA. NUNCA saia do personagem."
 )
+
+ALINE_SUSPENSE = (
+    "Você é Aline Nerin, criadora de conteúdo adulto. "
+    "O cliente já recebeu a amostra gratuita e está pedindo mais. "
+    "Responda de forma sedutora e natural: diga que só aquela foto é de graça, "
+    "que o que tem no pack é muito mais intenso, faça suspense, desperte curiosidade. "
+    "Cite que outros clientes ficaram chocados quando compraram. "
+    "Empurre para a compra mas sem parecer desesperada. Fale curto, 2 linhas no máximo. "
+    "NUNCA mande outra foto. NUNCA diga que é IA."
+)
+
+PALAVRAS_AMOSTRA = [
+    "prévia", "previa", "amostra", "foto", "fotos", "print", "prova",
+    "manda uma", "me manda", "ver antes", "mostrar", "mostra", "ver você",
+    "ver vc", "como você é", "como vc é", "como vc e", "te ver"
+]
 
 # histórico de conversa por usuário (em memória)
 chat_history = {}
@@ -320,33 +327,45 @@ def handle_msg(msg):
     else:
         # qualquer outra mensagem de texto → responde como Aline Nerin via IA
         if text and int(uid) != int(owner_id or 0):
-            resposta = groq_resposta(uid, text)
-            if resposta and "ENVIAR_AMOSTRA" in resposta:
-                _amostra = globals().get("AMOSTRA_FILE_ID")
-                if _amostra and not amostra_enviada.get(uid):
-                    # primeira vez — envia a amostra
-                    requests.post(f"{BASE}/sendPhoto", json={
-                        "chat_id": uid,
-                        "photo": _amostra,
-                        "caption": "Olha só bb… isso é só uma provinha 😏🔥\nO que tá no pack é MUITO melhor… 😈",
-                        "parse_mode": "Markdown",
-                        "reply_markup": MENU_KB
-                    }, timeout=15)
-                    amostra_enviada[uid] = True
-                    logging.info(f"amostra→{uid} enviada")
-                elif amostra_enviada.get(uid):
-                    # já recebeu — a IA vai fazer suspense (não envia mais)
-                    # injeta contexto no histórico pra IA saber
-                    chat_history.setdefault(uid, [])
-                    chat_history[uid].append({"role": "system", "content": "O cliente já recebeu a amostra gratuita. NÃO envie mais. Faça suspense, atiça a curiosidade e empurre para a compra."})
-                    nova = groq_resposta(uid, text)
-                    send(uid, nova or "Bb, já te dei uma provinha… o resto é só pra quem compra 😈🔥", MENU_KB)
-                else:
-                    send(uid, "Ai bb, a prévia tá chegando… por enquanto dá uma olhada no que tenho pra te oferecer 😏🔥", MENU_KB)
-            elif resposta:
-                send(uid, resposta, MENU_KB)
+            texto_lower = text.lower()
+            pediu_amostra = any(p in texto_lower for p in PALAVRAS_AMOSTRA)
+            _amostra = globals().get("AMOSTRA_FILE_ID")
+
+            if pediu_amostra and not amostra_enviada.get(uid) and _amostra:
+                # primeira vez pedindo — envia a amostra
+                requests.post(f"{BASE}/sendPhoto", json={
+                    "chat_id": uid,
+                    "photo": _amostra,
+                    "caption": "isso é só uma provinha bb… 😏🔥\no que tá no pack é bem mais intenso 😈",
+                    "reply_markup": MENU_KB
+                }, timeout=15)
+                amostra_enviada[uid] = True
+                logging.info(f"amostra→{uid} enviada")
+
+            elif pediu_amostra and amostra_enviada.get(uid):
+                # já recebeu — suspense via IA com prompt específico
+                payload = {
+                    "model": "llama-3.1-8b-instant",
+                    "messages": [
+                        {"role": "system", "content": ALINE_SUSPENSE},
+                        {"role": "user", "content": text}
+                    ],
+                    "max_tokens": 100,
+                    "temperature": 0.9,
+                }
+                try:
+                    r = requests.post(GROQ_URL, json=payload,
+                                      headers={"Authorization": f"Bearer {GROQ_API_KEY}"}, timeout=15)
+                    suspense = r.json()["choices"][0]["message"]["content"].strip()
+                except Exception:
+                    suspense = "bb aquela foi a provinha… o restante é exclusivo pra quem compra 😏🔥"
+                send(uid, suspense, MENU_KB)
+
             else:
-                send(uid, DESCONHECIDO_TEXT, MENU_KB)
+                # conversa normal
+                resposta = groq_resposta(uid, text)
+                send(uid, resposta or "oi bb 😘", MENU_KB)
+
         elif int(uid) != int(owner_id or 0):
             send(uid, DESCONHECIDO_TEXT, MENU_KB)
 
