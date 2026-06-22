@@ -9,8 +9,9 @@ PACK_PRICE = "R$25,00"
 VIP_PRICE = "R$39,90"
 BASE = f"https://api.telegram.org/bot{TOKEN}"
 
-# Foto de apresentação da Aline Nerin (URL pública ou file_id do Telegram)
-PHOTO_URL = None  # Será preenchido com file_id após primeiro envio
+# Mídia de apresentação da Aline Nerin (file_id salvo automaticamente)
+PHOTO_URL = None   # file_id de foto
+VIDEO_URL = None   # file_id de vídeo (tem prioridade sobre foto)
 
 owner_id = None
 pending = {}
@@ -124,6 +125,15 @@ def send_photo(cid, photo, caption, kb=None):
     logging.info(f"send_photo→{cid} ok={result.get('ok')}")
     return result
 
+def send_video(cid, video, caption, kb=None):
+    d = {"chat_id": cid, "video": video, "caption": caption, "parse_mode": "Markdown"}
+    if kb:
+        d["reply_markup"] = kb
+    r = requests.post(f"{BASE}/sendVideo", json=d, timeout=30)
+    result = r.json()
+    logging.info(f"send_video→{cid} ok={result.get('ok')}")
+    return result
+
 def edit_msg(cid, mid, text, kb=None):
     d = {"chat_id": cid, "message_id": mid, "text": text, "parse_mode": "Markdown"}
     if kb:
@@ -135,18 +145,21 @@ def answer_cb(cbid):
     requests.post(f"{BASE}/answerCallbackQuery", json={"callback_query_id": cbid}, timeout=10)
 
 def send_welcome(cid):
-    """Envia foto + menu de boas vindas"""
-    global PHOTO_URL
-    if PHOTO_URL:
+    """Envia vídeo ou foto + menu de boas vindas"""
+    global PHOTO_URL, VIDEO_URL
+    if VIDEO_URL:
+        send_video(cid, VIDEO_URL, WELCOME_TEXT, MENU_KB)
+    elif PHOTO_URL:
         send_photo(cid, PHOTO_URL, WELCOME_TEXT, MENU_KB)
     else:
         send(cid, WELCOME_TEXT, MENU_KB)
 
 def handle_msg(msg):
-    global owner_id, PHOTO_URL
+    global owner_id, PHOTO_URL, VIDEO_URL
     uid = msg["from"]["id"]
     text = msg.get("text", "")
     photo = msg.get("photo")
+    video = msg.get("video")
     doc = msg.get("document")
     name = msg["from"].get("first_name", "bb")
 
@@ -158,7 +171,6 @@ def handle_msg(msg):
         send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nAgora você recebe todos os comprovantes aqui 🔥")
 
     elif text and text.startswith("/setfoto") and uid == owner_id:
-        # /setfoto <file_id> — define a foto de apresentação
         parts = text.split(maxsplit=1)
         if len(parts) == 2:
             PHOTO_URL = parts[1].strip()
@@ -170,30 +182,44 @@ def handle_msg(msg):
         # Dona enviou foto → usar como apresentação
         file_id = photo[-1]["file_id"]
         PHOTO_URL = file_id
+        VIDEO_URL = None
         send(uid, f"✅ Foto salva como apresentação do bot!\n\nfile_id: `{file_id}`")
 
-    elif photo or doc:
-        # Cliente enviou comprovante
+    elif video and uid == owner_id:
+        # Dona enviou vídeo → usar como apresentação (prioridade sobre foto)
+        file_id = video["file_id"]
+        VIDEO_URL = file_id
+        PHOTO_URL = None
+        send(uid, f"✅ Vídeo salvo como apresentação do bot! 🔥\n\nTodo cliente que entrar vai ver esse vídeo primeiro 😈\n\nfile_id: `{file_id}`")
+
+    elif (photo or doc) and uid != owner_id:
+        # Cliente enviou comprovante (foto)
         tipo = pending.get(uid, "vip")
         send(uid, COMPROVANTE_TEXT)
         if owner_id:
             caption = f"💰 *Novo comprovante!*\n\n👤 {name}\n🆔 `{uid}`\n📦 Tipo: *{tipo.upper()}*"
-            if photo:
-                requests.post(f"{BASE}/sendPhoto", json={
-                    "chat_id": owner_id,
-                    "photo": photo[-1]["file_id"],
-                    "caption": caption,
-                    "parse_mode": "Markdown",
-                    "reply_markup": admin_kb(uid, tipo)
-                }, timeout=10)
-            else:
-                requests.post(f"{BASE}/sendDocument", json={
-                    "chat_id": owner_id,
-                    "document": doc["file_id"],
-                    "caption": caption,
-                    "parse_mode": "Markdown",
-                    "reply_markup": admin_kb(uid, tipo)
-                }, timeout=10)
+            requests.post(f"{BASE}/sendPhoto", json={
+                "chat_id": owner_id,
+                "photo": photo[-1]["file_id"] if photo else doc["file_id"],
+                "caption": caption,
+                "parse_mode": "Markdown",
+                "reply_markup": admin_kb(uid, tipo)
+            }, timeout=10)
+
+    elif doc and uid != owner_id:
+        # Cliente enviou comprovante (documento)
+        tipo = pending.get(uid, "vip")
+        send(uid, COMPROVANTE_TEXT)
+        if owner_id:
+            caption = f"💰 *Novo comprovante!*\n\n👤 {name}\n🆔 `{uid}`\n📦 Tipo: *{tipo.upper()}*"
+            requests.post(f"{BASE}/sendDocument", json={
+                "chat_id": owner_id,
+                "document": doc["file_id"],
+                "caption": caption,
+                "parse_mode": "Markdown",
+                "reply_markup": admin_kb(uid, tipo)
+            }, timeout=10)
+
     else:
         send(uid, DESCONHECIDO_TEXT, MENU_KB)
 
