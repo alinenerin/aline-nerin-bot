@@ -10,6 +10,7 @@ ALINE_SYSTEM = (
     "Ex: 'ai bb', 'kkk', 'to louca pra te mostrar', 'vai ser mt bom', 'confia em mim'. "
     "SEMPRE trate o cliente no MASCULINO: 'gostoso', 'safado', 'bb', 'meu amor', 'gato'. NUNCA no feminino. "
     "Frases BEM curtas, jeito de áudio de zap mesmo. Sem ponto final. Sem formalidade nenhuma. "
+    "Quando o cliente mandar o nome dele pela primeira vez, chame pelo nome, elogie, diga que é um nome lindo ou gostoso, crie conexão. "
     "Seu objetivo: criar tesão, gerar curiosidade e vender o Pack (R$25) ou VIP (R$39,90). "
     "Quando o cliente hesitar no preço: normalize de forma sedutora, diga que outros já compraram e amaram, crie urgência leve. "
     "Quando quiser comprar: manda clicar no menu abaixo. "
@@ -81,7 +82,7 @@ STATE_FILE = "state.json"
 
 VIDEO_FILE_ID_FIXO   = "BAACAgEAAxkBAAMcajiBq-Le8RoLJb-E_Eh-vxFxWDwAApwHAAJt5chFGM5JFCKDlaw8BA"
 AMOSTRA_FILE_ID_FIXO = "AgACAgEAAxkBAAORajkb6DFHIHyuK7o8_9J7eGIBdAoAAuwLaxtt5dBF7pHJ6sLZh2oBAAMCAAN5AAM8BA"
-AUDIO_FILE_ID_FIXO   = None  # será hardcoded após cadastro via /setaudio
+AUDIO_FILE_ID_FIXO   = "AwACAgQAAxkBAAPxajktrDTgCtRQysUW1rOefgVfQgcAAqwHAAIG_aVQRbvo_1oLOiE8BA"
 
 def load_state():
     global PHOTO_URL, VIDEO_URL, owner_id, AMOSTRA_FILE_ID
@@ -243,7 +244,7 @@ def answer_cb(cbid):
     requests.post(f"{BASE}/answerCallbackQuery", json={"callback_query_id": cbid}, timeout=10)
 
 def send_welcome(cid):
-    """Envia vídeo ou foto + menu de boas vindas"""
+    """Envia vídeo ou foto + menu de boas vindas + áudio de apresentação"""
     global PHOTO_URL, VIDEO_URL
     if VIDEO_URL:
         send_video(cid, VIDEO_URL, WELCOME_TEXT, MENU_KB)
@@ -251,6 +252,13 @@ def send_welcome(cid):
         send_photo(cid, PHOTO_URL, WELCOME_TEXT, MENU_KB)
     else:
         send(cid, WELCOME_TEXT, MENU_KB)
+    # envia áudio de apresentação logo depois
+    _audio = globals().get("AUDIO_FILE_ID")
+    if _audio:
+        requests.post(f"{BASE}/sendVoice", json={
+            "chat_id": cid,
+            "voice": _audio
+        }, timeout=15)
 
 def handle_msg(msg):
     global owner_id, PHOTO_URL, VIDEO_URL, AMOSTRA_FILE_ID, AUDIO_FILE_ID
