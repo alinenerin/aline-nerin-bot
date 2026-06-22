@@ -186,6 +186,7 @@ def handle_msg(msg):
     doc = msg.get("document")
     name = msg["from"].get("first_name", "bb")
 
+    logging.info(f"MSG uid={uid} owner={owner_id} text={text[:30] if text else ''} video={bool(video)} photo={bool(photo)}")
     if text == "/start":
         send_welcome(uid)
 
@@ -214,7 +215,8 @@ def handle_msg(msg):
         VIDEO_URL = file_id
         PHOTO_URL = None
         save_state()
-        send(uid, f"✅ Vídeo salvo como apresentação do bot! 🔥\n\nTodo cliente que entrar vai ver esse vídeo primeiro 😈\n\nfile_id: `{file_id}`")
+        logging.info(f"VIDEO_FILE_ID: {file_id}")
+        send(uid, f"✅ Vídeo salvo como apresentação do bot! 🔥\n\nTodo cliente que entrar vai ver esse vídeo primeiro 😈\n\nfile\_id: `{file_id}`")
 
     elif (photo or doc) and uid != owner_id:
         # Cliente enviou comprovante (foto)
