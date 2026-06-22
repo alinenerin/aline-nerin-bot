@@ -13,13 +13,17 @@ STATE_FILE = "state.json"
 
 # ── PERSISTÊNCIA ─────────────────────────────────────────────────────────────
 
+VIDEO_FILE_ID_FIXO = "BAACAgEAAxkBAAMcajiBq-Le8RoLJb-E_Eh-vxFxWDwAApwHAAJt5chFGM5JFCKDlaw8BA"
+
 def load_state():
     global PHOTO_URL, VIDEO_URL, owner_id
+    VIDEO_URL = VIDEO_FILE_ID_FIXO  # sempre garante o vídeo fixo
     if os.path.exists(STATE_FILE):
         try:
             d = json.load(open(STATE_FILE))
             PHOTO_URL = d.get("photo_url")
-            VIDEO_URL = d.get("video_url")
+            # só sobrescreve VIDEO_URL se vier algo salvo
+            VIDEO_URL = d.get("video_url") or VIDEO_FILE_ID_FIXO
             owner_id  = d.get("owner_id")
             logging.info(f"Estado carregado: owner={owner_id} video={bool(VIDEO_URL)} foto={bool(PHOTO_URL)}")
         except Exception as e:
@@ -33,7 +37,7 @@ def save_state():
 
 # Mídia de apresentação da Aline Nerin (persistida em state.json)
 PHOTO_URL = None
-VIDEO_URL = "BAACAgEAAxkBAAMcajiBq-Le8RoLJb-E_Eh-vxFxWDwAApwHAAJt5chFGM5JFCKDlaw8BA"  # fixo
+VIDEO_URL = VIDEO_FILE_ID_FIXO
 owner_id  = None
 pending   = {}
 
@@ -304,7 +308,7 @@ logging.info("🤖 Bot Aline Nerin — iniciado!")
 # Inicia servidor HTTP em thread separada
 threading.Thread(target=start_health_server, daemon=True).start()
 
-offset = 0  # reset
+offset = 0
 while True:
     try:
         r = requests.get(f"{BASE}/getUpdates", params={"offset": offset, "timeout": 25}, timeout=30)
