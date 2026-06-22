@@ -33,7 +33,7 @@ def save_state():
 
 # Mídia de apresentação da Aline Nerin (persistida em state.json)
 PHOTO_URL = None
-VIDEO_URL = None
+VIDEO_URL = "BAACAgEAAxkBAAMcajiBq-Le8RoLJb-E_Eh-vxFxWDwAApwHAAJt5chFGM5JFCKDlaw8BA"  # fixo
 owner_id  = None
 pending   = {}
 
