@@ -1,6 +1,44 @@
 import requests, time, logging, os, json, threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+ALINE_SYSTEM = (
+    "Você é Aline Nerin, uma criadora de conteúdo adulto brasileira. "
+    "Seu estilo é safadinha, direta, sedutora e bem-humorada. "
+    "Você fala de forma informal, usa emojis, chama os clientes de 'bb', 'gostoso', 'amor'. "
+    "Seu objetivo é seduzir o cliente e convencê-lo a comprar o Pack (R$25) ou o VIP (R$39,90/mês). "
+    "Quando o cliente demonstrar interesse em comprar, diga para clicar no menu abaixo. "
+    "Nunca fale que é uma IA. Nunca saia do personagem. "
+    "Respostas curtas, máximo 3 linhas. Sempre termine com um emoji provocante."
+)
+
+# histórico de conversa por usuário (em memória)
+chat_history = {}
+
+def groq_resposta(uid, user_msg):
+    if uid not in chat_history:
+        chat_history[uid] = []
+    chat_history[uid].append({"role": "user", "content": user_msg})
+    # mantém só as últimas 10 mensagens pra não estourar token
+    history = chat_history[uid][-10:]
+    payload = {
+        "model": "llama3-8b-8192",
+        "messages": [{"role": "system", "content": ALINE_SYSTEM}] + history,
+        "max_tokens": 150,
+        "temperature": 0.9,
+    }
+    try:
+        r = requests.post(GROQ_URL, json=payload,
+                          headers={"Authorization": f"Bearer {GROQ_API_KEY}"}, timeout=15)
+        reply = r.json()["choices"][0]["message"]["content"].strip()
+        chat_history[uid].append({"role": "assistant", "content": reply})
+        return reply
+    except Exception as e:
+        logging.error(f"Groq erro: {e}")
+        return None
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
 TOKEN = "8759607898:AAHTT9FVEFlsH0hVcr2Ybrijohx4MKuwAPQ"
@@ -251,7 +289,15 @@ def handle_msg(msg):
             }, timeout=10)
 
     else:
-        send(uid, DESCONHECIDO_TEXT, MENU_KB)
+        # qualquer outra mensagem de texto → responde como Aline Nerin via IA
+        if text and uid != owner_id:
+            resposta = groq_resposta(uid, text)
+            if resposta:
+                send(uid, resposta, MENU_KB)
+            else:
+                send(uid, DESCONHECIDO_TEXT, MENU_KB)
+        elif uid != owner_id:
+            send(uid, DESCONHECIDO_TEXT, MENU_KB)
 
 def handle_cb(cb):
     uid = cb["from"]["id"]
