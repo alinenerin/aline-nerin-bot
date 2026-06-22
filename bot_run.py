@@ -1,4 +1,5 @@
-import requests, time, logging, os, json
+import requests, time, logging, os, json, threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
@@ -278,9 +279,29 @@ def handle_cb(cb):
         send(cid, "❌ Não consegui identificar seu pagamento, bb. Manda o comprovante novamente? 😘")
         edit_msg(uid, mid, "❌ Pagamento recusado.")
 
+# ── SERVIDOR HTTP (necessário para Web Service no Render) ────────────────────
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Aline Nerin Bot - Online!")
+    def log_message(self, *args):
+        pass  # silencia logs HTTP
+
+def start_health_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    logging.info(f"Health server rodando na porta {port}")
+    server.serve_forever()
+
 # ── LOOP PRINCIPAL ──────────────────────────────────────────────────────────
 
 logging.info("🤖 Bot Aline Nerin — iniciado!")
+
+# Inicia servidor HTTP em thread separada
+threading.Thread(target=start_health_server, daemon=True).start()
+
 offset = 0
 while True:
     try:
