@@ -5,30 +5,40 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 ALINE_SYSTEM = (
-    "Você é Aline Nerin, criadora de conteúdo adulto brasileira. "
-    "Fale de forma natural e informal, como no WhatsApp. Frases curtas, 1-2 linhas. "
-    "Sem listas, sem formalidade, sem robótica. "
-    "Use emojis com moderação. Chame de 'bb', 'amor', 'gato'. "
-    "Seu objetivo é criar conexão e convencer a comprar o Pack (R$25) ou VIP (R$39,90). "
-    "Quando o cliente hesitar no preço diga que é menos que um lanche e que vale muito. "
-    "Quando quiser comprar diga pra clicar no menu. "
-    "NUNCA diga que é IA. NUNCA saia do personagem."
+    "Você é Aline Nerin, criadora de conteúdo adulto brasileira, tipo OnlyFans. "
+    "Fale EXATAMENTE como uma menina safada fala no WhatsApp — gírias, abreviações, emojis no lugar certo. "
+    "Ex: 'ai bb', 'kkk', 'to louca pra te mostrar', 'vai ser mt bom', 'confia em mim'. "
+    "SEMPRE trate o cliente no MASCULINO: 'gostoso', 'safado', 'bb', 'meu amor', 'gato'. NUNCA no feminino. "
+    "Frases BEM curtas, jeito de áudio de zap mesmo. Sem ponto final. Sem formalidade nenhuma. "
+    "Seu objetivo: criar tesão, gerar curiosidade e vender o Pack (R$25) ou VIP (R$39,90). "
+    "Quando o cliente hesitar no preço: normalize de forma sedutora, diga que outros já compraram e amaram, crie urgência leve. "
+    "Quando quiser comprar: manda clicar no menu abaixo. "
+    "Se o cliente perguntar se é golpe, se você some depois de pagar, se é confiável: "
+    "responda com firmeza e naturalidade que você é honesta, que tem clientes de longa data, "
+    "que não precisa aplicar golpe pra ganhar dinheiro porque seu conteúdo fala por si mesmo. "
+    "NUNCA diga que é IA. NUNCA saia do personagem. NUNCA trate no feminino."
 )
 
 ALINE_SUSPENSE = (
-    "Você é Aline Nerin, criadora de conteúdo adulto. "
-    "O cliente já recebeu a amostra gratuita e está pedindo mais. "
-    "Responda de forma sedutora e natural: diga que só aquela foto é de graça, "
-    "que o que tem no pack é muito mais intenso, faça suspense, desperte curiosidade. "
-    "Cite que outros clientes ficaram chocados quando compraram. "
-    "Empurre para a compra mas sem parecer desesperada. Fale curto, 2 linhas no máximo. "
-    "NUNCA mande outra foto. NUNCA diga que é IA."
+    "Você é Aline Nerin, criadora de conteúdo adulto tipo OnlyFans. "
+    "O cliente já recebeu a foto de amostra e tá pedindo mais de graça. "
+    "Responda de forma safada e natural — faça suspense, atiça ele, diga que o que tem no pack é pesado mesmo. "
+    "Fale que outros caras ficaram chocados e voltaram pra comprar o VIP depois. "
+    "Seja provocante mas sem desespero. Máximo 2 linhas curtas. "
+    "NUNCA mande outra foto. NUNCA diga que é IA. SEMPRE trate no masculino."
 )
+
+PALAVRAS_GOLPE = [
+    "golpe", "scam", "fraude", "confiável", "confiavel", "some", "sumiu", "sumir",
+    "vai sumir", "mentira", "mentirosa", "falsa", "fake", "roubando", "roubo",
+    "pagar e sumir", "pago e nao recebi", "caí em golpe", "cai em golpe",
+    "é verdade", "e verdade", "real", "existe", "de verdade"
+]
 
 PALAVRAS_AMOSTRA = [
     "prévia", "previa", "amostra", "foto", "fotos", "print", "prova",
     "manda uma", "me manda", "ver antes", "mostrar", "mostra", "ver você",
-    "ver vc", "como você é", "como vc é", "como vc e", "te ver"
+    "ver vc", "como você é", "como vc é", "como vc e", "te ver", "me mostra"
 ]
 
 # histórico de conversa por usuário (em memória)
@@ -69,8 +79,9 @@ STATE_FILE = "state.json"
 
 # ── PERSISTÊNCIA ─────────────────────────────────────────────────────────────
 
-VIDEO_FILE_ID_FIXO = "BAACAgEAAxkBAAMcajiBq-Le8RoLJb-E_Eh-vxFxWDwAApwHAAJt5chFGM5JFCKDlaw8BA"
+VIDEO_FILE_ID_FIXO   = "BAACAgEAAxkBAAMcajiBq-Le8RoLJb-E_Eh-vxFxWDwAApwHAAJt5chFGM5JFCKDlaw8BA"
 AMOSTRA_FILE_ID_FIXO = "AgACAgEAAxkBAAORajkb6DFHIHyuK7o8_9J7eGIBdAoAAuwLaxtt5dBF7pHJ6sLZh2oBAAMCAAN5AAM8BA"
+AUDIO_FILE_ID_FIXO   = None  # será hardcoded após cadastro via /setaudio
 
 def load_state():
     global PHOTO_URL, VIDEO_URL, owner_id, AMOSTRA_FILE_ID
@@ -78,26 +89,28 @@ def load_state():
     if os.path.exists(STATE_FILE):
         try:
             d = json.load(open(STATE_FILE))
-            PHOTO_URL = d.get("photo_url")
-            VIDEO_URL = d.get("video_url") or VIDEO_FILE_ID_FIXO
-            owner_id  = d.get("owner_id")
+            PHOTO_URL       = d.get("photo_url")
+            VIDEO_URL       = d.get("video_url") or VIDEO_FILE_ID_FIXO
+            owner_id        = d.get("owner_id")
             AMOSTRA_FILE_ID = d.get("amostra_file_id") or AMOSTRA_FILE_ID_FIXO
-            logging.info(f"Estado carregado: owner={owner_id} video={bool(VIDEO_URL)} amostra={bool(AMOSTRA_FILE_ID)}")
+            AUDIO_FILE_ID   = d.get("audio_file_id") or AUDIO_FILE_ID_FIXO
+            logging.info(f"Estado carregado: owner={owner_id} amostra={bool(AMOSTRA_FILE_ID)} audio={bool(AUDIO_FILE_ID)}")
         except Exception as e:
             logging.error(f"Erro ao carregar state: {e}")
 
 def save_state():
     try:
-        json.dump({"photo_url": PHOTO_URL, "video_url": VIDEO_URL, "owner_id": owner_id, "amostra_file_id": AMOSTRA_FILE_ID}, open(STATE_FILE, "w"))
+        json.dump({"photo_url": PHOTO_URL, "video_url": VIDEO_URL, "owner_id": owner_id, "amostra_file_id": AMOSTRA_FILE_ID, "audio_file_id": AUDIO_FILE_ID}, open(STATE_FILE, "w"))
     except Exception as e:
         logging.error(f"Erro ao salvar state: {e}")
 
 # Mídia de apresentação da Aline Nerin (persistida em state.json)
-PHOTO_URL = None
-VIDEO_URL = VIDEO_FILE_ID_FIXO
-owner_id  = None
-pending   = {}
+PHOTO_URL       = None
+VIDEO_URL       = VIDEO_FILE_ID_FIXO
+owner_id        = None
+pending         = {}
 AMOSTRA_FILE_ID = AMOSTRA_FILE_ID_FIXO  # fixo no código, nunca perde
+AUDIO_FILE_ID   = AUDIO_FILE_ID_FIXO    # áudio de apresentação
 
 load_state()
 
@@ -240,32 +253,37 @@ def send_welcome(cid):
         send(cid, WELCOME_TEXT, MENU_KB)
 
 def handle_msg(msg):
-    global owner_id, PHOTO_URL, VIDEO_URL, AMOSTRA_FILE_ID
+    global owner_id, PHOTO_URL, VIDEO_URL, AMOSTRA_FILE_ID, AUDIO_FILE_ID
     uid = msg["from"]["id"]
     text = msg.get("text", "")
     photo = msg.get("photo")
     video = msg.get("video")
     doc = msg.get("document")
+    voice = msg.get("voice") or msg.get("audio")
     name = msg["from"].get("first_name", "bb")
 
-    logging.info(f"MSG uid={uid} owner={owner_id} text={text[:30] if text else ''} video={bool(video)} photo={bool(photo)}")
+    logging.info(f"MSG uid={uid} owner={owner_id} text={text[:30] if text else ''} video={bool(video)} photo={bool(photo)} voice={bool(voice)}")
     if text == "/start":
         send_welcome(uid)
 
     elif text == "/owner":
         owner_id = uid
         save_state()
-        send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nAgora você recebe todos os comprovantes aqui 🔥\n\nComandos disponíveis:\n/setamostra — cadastrar foto amostra (envie o comando e depois a foto)")
+        send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nComandos:\n/setamostra — foto amostra\n/setaudio — áudio de apresentação")
 
     elif text and text.strip() == "/setamostra" and int(uid) == int(owner_id or 0):
-        send(uid, "📸 Agora manda a foto que vai ser a amostra gratuita pros clientes!")
+        send(uid, "📸 Manda a foto amostra agora!")
         pending[uid] = "aguardando_amostra"
         logging.info(f"setamostra ativado para {uid}")
 
     elif text and text.strip().startswith("/setamostra"):
         logging.info(f"setamostra BLOQUEADO uid={uid} owner={owner_id} match={int(uid)==int(owner_id or 0)}")
-        send(uid, "📸 Agora manda a foto que vai ser a amostra gratuita pros clientes!")
+        send(uid, "📸 Manda a foto amostra agora!")
         pending[uid] = "aguardando_amostra"
+
+    elif text and text.strip() == "/setaudio" and int(uid) == int(owner_id or 0):
+        send(uid, "🎤 Manda o áudio agora! Vai ser enviado pra convencer clientes indecisos.")
+        pending[uid] = "aguardando_audio"
 
     elif text and text.startswith("/setfoto") and int(uid) == int(owner_id or 0):
         parts = text.split(maxsplit=1)
@@ -277,17 +295,27 @@ def handle_msg(msg):
 
     elif photo and int(uid) == int(owner_id or 0):
         file_id = photo[-1]["file_id"]
-        # verifica se tá aguardando amostra
         if pending.get(uid) == "aguardando_amostra":
             globals()["AMOSTRA_FILE_ID"] = file_id
             pending.pop(uid, None)
             save_state()
-            send(uid, "✅ Foto amostra salva! Os clientes vão receber essa foto quando pedirem prévia 🔥")
+            send(uid, "✅ Foto amostra salva!")
         else:
             PHOTO_URL = file_id
             VIDEO_URL = None
             save_state()
-            send(uid, f"✅ Foto salva como apresentação do bot!\n\nfile_id: `{file_id}`")
+            send(uid, "✅ Foto de apresentação salva!")
+
+    elif (msg.get("voice") or msg.get("audio")) and int(uid) == int(owner_id or 0):
+        voice = msg.get("voice") or msg.get("audio")
+        file_id = voice["file_id"]
+        if pending.get(uid) == "aguardando_audio":
+            globals()["AUDIO_FILE_ID"] = file_id
+            pending.pop(uid, None)
+            save_state()
+            send(uid, "✅ Áudio salvo! Vai ser enviado pra clientes indecisos 🎤🔥")
+        else:
+            send(uid, f"Áudio recebido. Use /setaudio pra cadastrar como áudio de apresentação.")
 
     elif video and int(uid) == int(owner_id or 0):
         file_id = video["file_id"]
@@ -295,7 +323,7 @@ def handle_msg(msg):
         PHOTO_URL = None
         save_state()
         logging.info(f"VIDEO_FILE_ID: {file_id}")
-        send(uid, f"✅ Vídeo salvo como apresentação do bot! 🔥\n\nTodo cliente que entrar vai ver esse vídeo primeiro 😈\n\nfile\_id: `{file_id}`")
+        send(uid, "✅ Vídeo salvo como apresentação!")
 
     elif (photo or doc) and int(uid) != int(owner_id or 0):
         # Cliente enviou comprovante (foto)
@@ -330,10 +358,27 @@ def handle_msg(msg):
         if text and int(uid) != int(owner_id or 0):
             texto_lower = text.lower()
             pediu_amostra = any(p in texto_lower for p in PALAVRAS_AMOSTRA)
+            fala_golpe    = any(p in texto_lower for p in PALAVRAS_GOLPE)
             _amostra = globals().get("AMOSTRA_FILE_ID")
+            _audio   = globals().get("AUDIO_FILE_ID")
 
-            if pediu_amostra and not amostra_enviada.get(uid) and _amostra:
-                # primeira vez pedindo — envia a amostra
+            if fala_golpe:
+                # responde sobre honestidade + envia áudio se tiver
+                resp_golpe = (
+                    "bb eu não preciso de golpe pra ganhar dinheiro não 😂 "
+                    "meu conteúdo fala por si mesmo… tenho clientes que compram faz meses "
+                    "e voltam sempre 🥰 pode confiar em mim"
+                )
+                send(uid, resp_golpe, MENU_KB)
+                if _audio:
+                    requests.post(f"{BASE}/sendVoice", json={
+                        "chat_id": uid,
+                        "voice": _audio,
+                        "caption": "olha aqui minha voz bb… sou real demais 😘🔥"
+                    }, timeout=15)
+
+            elif pediu_amostra and not amostra_enviada.get(uid) and _amostra:
+                # primeira vez — envia amostra
                 requests.post(f"{BASE}/sendPhoto", json={
                     "chat_id": uid,
                     "photo": _amostra,
@@ -342,9 +387,15 @@ def handle_msg(msg):
                 }, timeout=15)
                 amostra_enviada[uid] = True
                 logging.info(f"amostra→{uid} enviada")
+                # envia áudio junto se tiver
+                if _audio:
+                    requests.post(f"{BASE}/sendVoice", json={
+                        "chat_id": uid,
+                        "voice": _audio
+                    }, timeout=15)
 
             elif pediu_amostra and amostra_enviada.get(uid):
-                # já recebeu — suspense via IA com prompt específico
+                # já recebeu — suspense
                 payload = {
                     "model": "llama-3.1-8b-instant",
                     "messages": [
