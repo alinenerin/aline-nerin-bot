@@ -83,7 +83,8 @@ STATE_FILE = "state.json"
 
 VIDEO_FILE_ID_FIXO   = "BAACAgEAAxkBAAMcajiBq-Le8RoLJb-E_Eh-vxFxWDwAApwHAAJt5chFGM5JFCKDlaw8BA"
 AMOSTRA_FILE_ID_FIXO = "AgACAgEAAxkBAAORajkb6DFHIHyuK7o8_9J7eGIBdAoAAuwLaxtt5dBF7pHJ6sLZh2oBAAMCAAN5AAM8BA"
-AUDIO_FILE_ID_FIXO   = "AwACAgQAAxkBAAPxajktrDTgCtRQysUW1rOefgVfQgcAAqwHAAIG_aVQRbvo_1oLOiE8BA"
+AUDIO_FILE_ID_FIXO        = "AwACAgQAAxkBAAPxajktrDTgCtRQysUW1rOefgVfQgcAAqwHAAIG_aVQRbvo_1oLOiE8BA"
+AUDIO_AMOSTRA_FILE_ID_FIXO = None  # áudio que vai junto com a foto amostra
 
 def load_state():
     global PHOTO_URL, VIDEO_URL, owner_id, AMOSTRA_FILE_ID
@@ -96,13 +97,14 @@ def load_state():
             owner_id        = d.get("owner_id")
             AMOSTRA_FILE_ID = d.get("amostra_file_id") or AMOSTRA_FILE_ID_FIXO
             AUDIO_FILE_ID   = d.get("audio_file_id") or AUDIO_FILE_ID_FIXO
+            AUDIO_AMOSTRA   = d.get("audio_amostra_file_id") or AUDIO_AMOSTRA_FILE_ID_FIXO
             logging.info(f"Estado carregado: owner={owner_id} amostra={bool(AMOSTRA_FILE_ID)} audio={bool(AUDIO_FILE_ID)}")
         except Exception as e:
             logging.error(f"Erro ao carregar state: {e}")
 
 def save_state():
     try:
-        json.dump({"photo_url": PHOTO_URL, "video_url": VIDEO_URL, "owner_id": owner_id, "amostra_file_id": AMOSTRA_FILE_ID, "audio_file_id": AUDIO_FILE_ID}, open(STATE_FILE, "w"))
+        json.dump({"photo_url": PHOTO_URL, "video_url": VIDEO_URL, "owner_id": owner_id, "amostra_file_id": AMOSTRA_FILE_ID, "audio_file_id": AUDIO_FILE_ID, "audio_amostra_file_id": AUDIO_AMOSTRA}, open(STATE_FILE, "w"))
     except Exception as e:
         logging.error(f"Erro ao salvar state: {e}")
 
@@ -112,7 +114,8 @@ VIDEO_URL       = VIDEO_FILE_ID_FIXO
 owner_id        = None
 pending         = {}
 AMOSTRA_FILE_ID = AMOSTRA_FILE_ID_FIXO  # fixo no código, nunca perde
-AUDIO_FILE_ID   = AUDIO_FILE_ID_FIXO    # áudio de apresentação
+AUDIO_FILE_ID   = AUDIO_FILE_ID_FIXO         # áudio de apresentação
+AUDIO_AMOSTRA   = AUDIO_AMOSTRA_FILE_ID_FIXO  # áudio que vai junto com a amostra
 
 load_state()
 
@@ -262,7 +265,7 @@ def send_welcome(cid):
         }, timeout=15)
 
 def handle_msg(msg):
-    global owner_id, PHOTO_URL, VIDEO_URL, AMOSTRA_FILE_ID, AUDIO_FILE_ID
+    global owner_id, PHOTO_URL, VIDEO_URL, AMOSTRA_FILE_ID, AUDIO_FILE_ID, AUDIO_AMOSTRA
     uid = msg["from"]["id"]
     text = msg.get("text", "")
     photo = msg.get("photo")
@@ -278,7 +281,7 @@ def handle_msg(msg):
     elif text == "/owner":
         owner_id = uid
         save_state()
-        send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nComandos:\n/setamostra — foto amostra\n/setaudio — áudio de apresentação")
+        send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nComandos:\n/setamostra — foto amostra\n/setaudio — áudio de apresentação\n/setaudioamostra — áudio que vai junto com a foto amostra")
 
     elif text and text.strip() == "/setamostra" and int(uid) == int(owner_id or 0):
         send(uid, "📸 Manda a foto amostra agora!")
@@ -291,8 +294,12 @@ def handle_msg(msg):
         pending[uid] = "aguardando_amostra"
 
     elif text and text.strip() == "/setaudio" and int(uid) == int(owner_id or 0):
-        send(uid, "🎤 Manda o áudio agora! Vai ser enviado pra convencer clientes indecisos.")
+        send(uid, "🎤 Manda o áudio de apresentação agora!")
         pending[uid] = "aguardando_audio"
+
+    elif text and text.strip() == "/setaudioamostra" and int(uid) == int(owner_id or 0):
+        send(uid, "🎤 Manda o áudio que vai junto com a foto amostra!")
+        pending[uid] = "aguardando_audio_amostra"
 
     elif text and text.startswith("/setfoto") and int(uid) == int(owner_id or 0):
         parts = text.split(maxsplit=1)
@@ -322,9 +329,14 @@ def handle_msg(msg):
             globals()["AUDIO_FILE_ID"] = file_id
             pending.pop(uid, None)
             save_state()
-            send(uid, "✅ Áudio salvo! Vai ser enviado pra clientes indecisos 🎤🔥")
+            send(uid, "✅ Áudio de apresentação salvo! Vai ser enviado no boas-vindas 🎤🔥")
+        elif pending.get(uid) == "aguardando_audio_amostra":
+            globals()["AUDIO_AMOSTRA"] = file_id
+            pending.pop(uid, None)
+            save_state()
+            send(uid, "✅ Áudio da amostra salvo! Vai junto com a foto amostra 🎤🔥")
         else:
-            send(uid, f"Áudio recebido. Use /setaudio pra cadastrar como áudio de apresentação.")
+            send(uid, "Áudio recebido. Use /setaudio ou /setaudioamostra pra cadastrar.")
 
     elif video and int(uid) == int(owner_id or 0):
         file_id = video["file_id"]
@@ -368,11 +380,11 @@ def handle_msg(msg):
             texto_lower = text.lower()
             pediu_amostra = any(p in texto_lower for p in PALAVRAS_AMOSTRA)
             fala_golpe    = any(p in texto_lower for p in PALAVRAS_GOLPE)
-            _amostra = globals().get("AMOSTRA_FILE_ID")
-            _audio   = globals().get("AUDIO_FILE_ID")
+            _amostra       = globals().get("AMOSTRA_FILE_ID")
+            _audio         = globals().get("AUDIO_FILE_ID")
+            _audio_amostra = globals().get("AUDIO_AMOSTRA")
 
             if fala_golpe:
-                # responde sobre honestidade + envia áudio se tiver
                 resp_golpe = (
                     "bb eu não preciso de golpe pra ganhar dinheiro não 😂 "
                     "meu conteúdo fala por si mesmo… tenho clientes que compram faz meses "
@@ -387,7 +399,7 @@ def handle_msg(msg):
                     }, timeout=15)
 
             elif pediu_amostra and not amostra_enviada.get(uid) and _amostra:
-                # primeira vez — envia amostra
+                # primeira vez — envia foto amostra
                 requests.post(f"{BASE}/sendPhoto", json={
                     "chat_id": uid,
                     "photo": _amostra,
@@ -396,11 +408,12 @@ def handle_msg(msg):
                 }, timeout=15)
                 amostra_enviada[uid] = True
                 logging.info(f"amostra→{uid} enviada")
-                # envia áudio junto se tiver
-                if _audio:
+                # envia áudio da amostra se tiver, senão usa o de apresentação
+                _voz = _audio_amostra or _audio
+                if _voz:
                     requests.post(f"{BASE}/sendVoice", json={
                         "chat_id": uid,
-                        "voice": _audio
+                        "voice": _voz
                     }, timeout=15)
 
             elif pediu_amostra and amostra_enviada.get(uid):
