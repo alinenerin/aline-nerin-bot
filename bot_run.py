@@ -70,6 +70,7 @@ STATE_FILE = "state.json"
 # ── PERSISTÊNCIA ─────────────────────────────────────────────────────────────
 
 VIDEO_FILE_ID_FIXO = "BAACAgEAAxkBAAMcajiBq-Le8RoLJb-E_Eh-vxFxWDwAApwHAAJt5chFGM5JFCKDlaw8BA"
+AMOSTRA_FILE_ID_FIXO = "AgACAgEAAxkBAAORajkb6DFHIHyuK7o8_9J7eGIBdAoAAuwLaxtt5dBF7pHJ6sLZh2oBAAMCAAN5AAM8BA"
 
 def load_state():
     global PHOTO_URL, VIDEO_URL, owner_id, AMOSTRA_FILE_ID
@@ -80,7 +81,7 @@ def load_state():
             PHOTO_URL = d.get("photo_url")
             VIDEO_URL = d.get("video_url") or VIDEO_FILE_ID_FIXO
             owner_id  = d.get("owner_id")
-            AMOSTRA_FILE_ID = d.get("amostra_file_id")
+            AMOSTRA_FILE_ID = d.get("amostra_file_id") or AMOSTRA_FILE_ID_FIXO
             logging.info(f"Estado carregado: owner={owner_id} video={bool(VIDEO_URL)} amostra={bool(AMOSTRA_FILE_ID)}")
         except Exception as e:
             logging.error(f"Erro ao carregar state: {e}")
@@ -96,7 +97,7 @@ PHOTO_URL = None
 VIDEO_URL = VIDEO_FILE_ID_FIXO
 owner_id  = None
 pending   = {}
-AMOSTRA_FILE_ID = None  # foto amostra gratuita
+AMOSTRA_FILE_ID = AMOSTRA_FILE_ID_FIXO  # fixo no código, nunca perde
 
 load_state()
 
