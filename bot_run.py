@@ -265,7 +265,7 @@ def handle_msg(msg):
             AMOSTRA_FILE_ID = file_id
             pending.pop(uid, None)
             save_state()
-            send(uid, f"✅ Foto amostra salva! Os clientes vão receber essa foto quando pedirem prévia 🔥\n\nfile_id: `{file_id}`")
+            send(uid, f"✅ Foto amostra salva! Os clientes vão receber essa foto quando pedirem prévia 🔥")
         else:
             PHOTO_URL = file_id
             VIDEO_URL = None
