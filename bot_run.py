@@ -24,7 +24,7 @@ def groq_resposta(uid, user_msg):
     # mantém só as últimas 10 mensagens pra não estourar token
     history = chat_history[uid][-10:]
     payload = {
-        "model": "llama3-8b-8192",
+        "model": "llama-3.1-8b-instant",
         "messages": [{"role": "system", "content": ALINE_SYSTEM}] + history,
         "max_tokens": 150,
         "temperature": 0.9,
