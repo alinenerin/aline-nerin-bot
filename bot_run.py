@@ -304,7 +304,7 @@ logging.info("🤖 Bot Aline Nerin — iniciado!")
 # Inicia servidor HTTP em thread separada
 threading.Thread(target=start_health_server, daemon=True).start()
 
-offset = 0
+offset = 0  # reset
 while True:
     try:
         r = requests.get(f"{BASE}/getUpdates", params={"offset": offset, "timeout": 25}, timeout=30)
