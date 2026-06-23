@@ -85,10 +85,13 @@ def groq_resposta(uid, user_msg, system_override=None):
                                    "X-Title": "Aline Nerin Bot"},
                           timeout=20)
         reply = r.json()["choices"][0]["message"]["content"].strip()
+        logging.info(f"AI RAW: {repr(reply[:200])}")
         # limpa qualquer link residual
         reply = re.sub(r'https?://\S+', '', reply)
         reply = re.sub(r't\.me/\S+', '', reply, flags=re.IGNORECASE)
         reply = re.sub(r'@\w+', '', reply)
+        reply = re.sub(r'A.?Tools?\s*X?', '', reply, flags=re.IGNORECASE)
+        reply = re.sub(r'[Jj]oin\s+\S+', '', reply)
         reply = reply.strip()
         if not reply:
             reply = "kkk amor 😘"
@@ -281,7 +284,7 @@ def send(cid, text, kb=None):
     if kb:
         d["reply_markup"] = kb
     r = requests.post(f"{BASE}/sendMessage", json=d, timeout=10)
-    logging.info(f"send→{cid} ok={r.json().get('ok')}")
+    logging.info(f"send→{cid} ok={r.json().get('ok')} text={repr(text[:100])}")
     return r.json()
 
 def send_photo(cid, photo, caption, kb=None):
