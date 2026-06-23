@@ -114,6 +114,7 @@ VIDEO_FILE_ID_FIXO   = "BAACAgEAAxkBAAMcajiBq-Le8RoLJb-E_Eh-vxFxWDwAApwHAAJt5chF
 AMOSTRA_FILE_ID_FIXO = "AgACAgEAAxkBAAORajkb6DFHIHyuK7o8_9J7eGIBdAoAAuwLaxtt5dBF7pHJ6sLZh2oBAAMCAAN5AAM8BA"
 AUDIO_FILE_ID_FIXO        = "AwACAgQAAxkBAAPxajktrDTgCtRQysUW1rOefgVfQgcAAqwHAAIG_aVQRbvo_1oLOiE8BA"
 AUDIO_AMOSTRA_FILE_ID_FIXO = "AwACAgQAAxkBAAIBC2o5NwlEpLmNC_ubYT9ruYYY7ZmWAAJVBwACBGOtUKrboec38LvUPAQ"
+AUDIO_MENU_FILE_ID_FIXO    = None  # áudio enviado logo após o menu de boas-vindas
 
 CHAT_HISTORY_FILE = "chat_history.json"
 
@@ -149,13 +150,14 @@ def load_state():
             AMOSTRA_FILE_ID = d.get("amostra_file_id") or AMOSTRA_FILE_ID_FIXO
             AUDIO_FILE_ID   = d.get("audio_file_id") or AUDIO_FILE_ID_FIXO
             AUDIO_AMOSTRA   = d.get("audio_amostra_file_id") or AUDIO_AMOSTRA_FILE_ID_FIXO
+            AUDIO_MENU      = d.get("audio_menu_file_id") or AUDIO_MENU_FILE_ID_FIXO
             logging.info(f"Estado carregado: owner={owner_id} amostra={bool(AMOSTRA_FILE_ID)} audio={bool(AUDIO_FILE_ID)}")
         except Exception as e:
             logging.error(f"Erro ao carregar state: {e}")
 
 def save_state():
     try:
-        json.dump({"photo_url": PHOTO_URL, "video_url": VIDEO_URL, "owner_id": owner_id, "amostra_file_id": AMOSTRA_FILE_ID, "audio_file_id": AUDIO_FILE_ID, "audio_amostra_file_id": AUDIO_AMOSTRA}, open(STATE_FILE, "w"))
+        json.dump({"photo_url": PHOTO_URL, "video_url": VIDEO_URL, "owner_id": owner_id, "amostra_file_id": AMOSTRA_FILE_ID, "audio_file_id": AUDIO_FILE_ID, "audio_amostra_file_id": AUDIO_AMOSTRA, "audio_menu_file_id": AUDIO_MENU}, open(STATE_FILE, "w"))
     except Exception as e:
         logging.error(f"Erro ao salvar state: {e}")
 
@@ -167,6 +169,7 @@ pending         = {}
 AMOSTRA_FILE_ID = AMOSTRA_FILE_ID_FIXO  # fixo no código, nunca perde
 AUDIO_FILE_ID   = AUDIO_FILE_ID_FIXO         # áudio de apresentação
 AUDIO_AMOSTRA   = AUDIO_AMOSTRA_FILE_ID_FIXO  # áudio que vai junto com a amostra
+AUDIO_MENU      = AUDIO_MENU_FILE_ID_FIXO     # áudio enviado logo após o menu de boas-vindas
 
 load_state()
 load_chat_history()
@@ -331,6 +334,14 @@ def send_welcome(cid):
     # pequeno delay antes do menu — parece mais humano
     typing(cid, segundos=3)
     send(cid, "o que você prefere, gostoso? 👇", MENU_KB)
+    # áudio logo após o menu
+    _audio_menu = globals().get("AUDIO_MENU")
+    if _audio_menu:
+        time.sleep(1)
+        requests.post(f"{BASE}/sendVoice", json={
+            "chat_id": cid,
+            "voice": _audio_menu
+        }, timeout=15)
 
 def handle_msg(msg):
     global owner_id, PHOTO_URL, VIDEO_URL, AMOSTRA_FILE_ID, AUDIO_FILE_ID, AUDIO_AMOSTRA
@@ -349,7 +360,7 @@ def handle_msg(msg):
     elif text == "/owner":
         owner_id = uid
         save_state()
-        send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nComandos:\n/setamostra — foto amostra\n/setaudio — áudio de apresentação\n/setaudioamostra — áudio que vai junto com a foto amostra")
+        send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nComandos:\n/setamostra — foto amostra\n/setaudio — áudio de apresentação\n/setaudioamostra — áudio que vai junto com a foto amostra\n/setaudiomenu — áudio enviado logo após o menu de boas-vindas")
 
     elif text and text.strip() == "/setamostra" and int(uid) == int(owner_id or 0):
         send(uid, "📸 Manda a foto amostra agora!")
@@ -368,6 +379,10 @@ def handle_msg(msg):
     elif text and text.strip() == "/setaudioamostra" and int(uid) == int(owner_id or 0):
         send(uid, "🎤 Manda o áudio que vai junto com a foto amostra!")
         pending[uid] = "aguardando_audio_amostra"
+
+    elif text and text.strip() == "/setaudiomenu" and int(uid) == int(owner_id or 0):
+        send(uid, "🎤 Manda o áudio que vai logo após o menu de boas-vindas!")
+        pending[uid] = "aguardando_audio_menu"
 
     elif text and text.startswith("/setfoto") and int(uid) == int(owner_id or 0):
         parts = text.split(maxsplit=1)
@@ -403,8 +418,13 @@ def handle_msg(msg):
             pending.pop(uid, None)
             save_state()
             send(uid, "✅ Áudio da amostra salvo! Vai junto com a foto amostra 🎤🔥")
+        elif pending.get(uid) == "aguardando_audio_menu":
+            globals()["AUDIO_MENU"] = file_id
+            pending.pop(uid, None)
+            save_state()
+            send(uid, "✅ Áudio do menu salvo! Vai ser enviado logo após o menu de boas-vindas 🎤🔥")
         else:
-            send(uid, "Áudio recebido. Use /setaudio ou /setaudioamostra pra cadastrar.")
+            send(uid, "Áudio recebido. Use /setaudio, /setaudioamostra ou /setaudiomenu pra cadastrar.")
 
     elif video and int(uid) == int(owner_id or 0):
         file_id = video["file_id"]
