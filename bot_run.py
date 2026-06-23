@@ -472,8 +472,22 @@ def handle_msg(msg):
             _audio         = globals().get("AUDIO_FILE_ID")
             _audio_amostra = globals().get("AUDIO_AMOSTRA")
 
+            # atalho de texto: usuário clicou em botão antigo ou digitou pack/vip
+            quer_pack = texto_lower in ["pack", "pack exclusivo", "r$25", "25", "quero o pack"]
+            quer_vip  = texto_lower in ["vip", "canal vip", "r$39,90", "39,90", "quero vip", "vip r$39,90/mês"]
+            if quer_pack:
+                pending[uid] = "pack"
+                typing(uid, segundos=2)
+                send(uid, PACK_TEXT, buy_kb("pack"))
+                return
+            elif quer_vip:
+                pending[uid] = "vip"
+                typing(uid, segundos=2)
+                send(uid, VIP_TEXT, buy_kb("vip"))
+                return
+
             if fala_golpe:
-                resp_golpe = groq_resposta(uid, text) or "bb eu não preciso de golpe não kkk tenho cliente que tá comigo faz meses 😂 pode confiar"
+                resp_golpe = groq_resposta(uid, text) or "bb eu nao preciso de golpe nao kkk tenho cliente que ta comigo faz meses 😂 pode confiar"
                 typing(uid, segundos=len(resp_golpe) // 30 + 2)
                 send(uid, resp_golpe)
                 save_chat_history()
