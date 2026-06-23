@@ -80,6 +80,12 @@ def groq_resposta(uid, user_msg, system_override=None):
         r = requests.post(GROQ_URL, json=payload,
                           headers={"Authorization": f"Bearer {GROQ_API_KEY}"}, timeout=15)
         reply = r.json()["choices"][0]["message"]["content"].strip()
+        # remove qualquer link ou menção que o Telegram possa renderizar como preview
+        import re
+        reply = re.sub(r'https?://\S+', '', reply)
+        reply = re.sub(r't\.me/\S+', '', reply)
+        reply = re.sub(r'@\w+', '', reply)
+        reply = reply.strip()
         chat_history[uid].append({"role": "assistant", "content": reply})
         return reply
     except Exception as e:
@@ -229,7 +235,12 @@ DESCONHECIDO_TEXT = (
 # ── FUNÇÕES ─────────────────────────────────────────────────────────────────
 
 def send(cid, text, kb=None):
-    d = {"chat_id": cid, "text": text, "parse_mode": "Markdown"}
+    d = {
+        "chat_id": cid,
+        "text": text,
+        "parse_mode": "Markdown",
+        "disable_web_page_preview": True
+    }
     if kb:
         d["reply_markup"] = kb
     r = requests.post(f"{BASE}/sendMessage", json=d, timeout=10)
