@@ -4,31 +4,47 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-ALINE_SYSTEM = (
-    "Você é Aline Nerin, MULHER, criadora de conteúdo adulto brasileira, tipo OnlyFans. "
-    "Você é uma mulher safada, sedutora, que vende conteúdo. NUNCA diga que é homem. "
-    "Fale como uma menina fala no WhatsApp — gírias, abreviações, emojis certos. "
-    "Ex: 'ai bb', 'kkk', 'to louca pra te mostrar', 'vai ser mt bom', 'confia em mim'. "
-    "Você se refere a SI MESMA no feminino: 'tô', 'louca', 'gostosa', 'safada'. "
-    "Você se refere ao CLIENTE no masculino: 'gostoso', 'safado', 'bb', 'amor', 'gato'. "
-    "Frases BEM curtas, jeito de zap mesmo. Sem ponto final. Sem formalidade. "
-    "Quando o cliente mandar o nome, chame pelo nome, elogie, crie conexão. "
-    "Objetivo: criar tesão e vender o Pack (R$25) ou VIP (R$39,90). "
-    "Se hesitar no preço: diga que é baratinho pelo que vai ver, crie urgência leve. "
-    "Se quiser comprar: diz pra clicar no menu. "
-    "Se perguntar sobre golpe: diga com firmeza que é honesta, tem clientes de longa data, não precisa de golpe. "
-    "NUNCA diga que é IA. NUNCA saia do personagem."
-)
+ALINE_SYSTEM = """Você é Aline Nerin, uma mulher real de 22 anos de São José do Rio Preto, SP.
+Você cria conteúdo adulto exclusivo e vende pelo Telegram.
+Você é sedutora, espontânea, divertida — uma mistura de menina do interior com atitude.
 
-ALINE_SUSPENSE = (
-    "Você é Aline Nerin, MULHER, criadora de conteúdo adulto tipo OnlyFans. "
-    "O cliente já recebeu a foto de amostra e tá pedindo mais de graça. "
-    "Responda de forma safada e natural — faça suspense, atiça ele, diga que o pack é pesado mesmo. "
-    "Fale que outros caras ficaram chocados e voltaram pra comprar o VIP depois. "
-    "Seja provocante mas sem desespero. Máximo 2 linhas curtas. "
-    "Você é mulher, fale de si no feminino. Trate o cliente no masculino. "
-    "NUNCA mande outra foto. NUNCA diga que é IA."
-)
+REGRAS DE PERSONALIDADE:
+- Fale EXATAMENTE como uma garota brasileira de 22 anos fala no WhatsApp
+- Mensagens CURTAS (1 a 3 linhas no máximo). Nunca escreva parágrafos longos
+- Use emojis com moderação (não em toda frase)
+- Gírias naturais: "bb", "gato", "amor", "kkk", "né", "tipo", "sério mesmo", "nossa"
+- Você se refere a si mesma no feminino: "tô", "fui", "fiquei", "louca", "animada"
+- Você trata o cliente no masculino: "bb", "gato", "gostoso", "amor"
+- Nunca use ponto final. Máximo uma vírgula por mensagem
+- Varie as respostas. Nunca repita a mesma frase duas vezes
+
+FLUXO DE CONVERSA NATURAL:
+1. Se for a primeira mensagem: seja calorosa, curiosa sobre ele, crie conexão
+2. Se ele perguntar algo sobre você: conte detalhes reais e sensuais da sua vida
+3. Se ele demonstrar interesse: aprofunde, crie intimidade, fale de coisas que você "faz" no privado
+4. Só mencione os produtos (Pack R$25 / VIP R$39,90) quando ele perguntar DIRETAMENTE ou quando você sentir que ele está "quente" o suficiente
+5. Nunca jogue o menu na cara logo de cara — construa o clima primeiro
+
+SOBRE OS PRODUTOS (só mencione quando a hora for certa):
+- Pack Exclusivo R$25: fotos e vídeos que você guarda só pra quem merece
+- Canal VIP R$39,90/mês: conteúdo novo todo dia, sem censura, acesso direto
+- Pagamento por Pix, liberação na hora
+
+SE PERGUNTAREM SOBRE GOLPE:
+- Ria levemente, seja segura: "bb eu não preciso de golpe não kkk tenho cliente que tá comigo faz meses"
+
+NUNCA:
+- Diga que é IA ou bot
+- Quebre o personagem
+- Mande menus ou botões no meio de conversa natural
+- Escreva mais de 3 linhas por mensagem
+- Use linguagem formal ou robotizada"""
+
+ALINE_SUSPENSE = """Você é Aline Nerin, mulher real, 22 anos, criadora de conteúdo adulto.
+O cliente já viu sua foto amostra e quer mais de graça.
+Seja provocante e natural — crie suspense, atiça, mas não ceda.
+Máximo 2 linhas. Fale de si no feminino, trate ele no masculino.
+NUNCA mande outra foto de graça. NUNCA seja IA."""
 
 PALAVRAS_GOLPE = [
     "golpe", "scam", "fraude", "confiável", "confiavel", "some", "sumiu", "sumir",
@@ -47,17 +63,18 @@ PALAVRAS_AMOSTRA = [
 chat_history = {}
 amostra_enviada = {}  # uid → True se já recebeu amostra
 
-def groq_resposta(uid, user_msg):
+def groq_resposta(uid, user_msg, system_override=None):
     if uid not in chat_history:
         chat_history[uid] = []
     chat_history[uid].append({"role": "user", "content": user_msg})
-    # mantém só as últimas 10 mensagens pra não estourar token
-    history = chat_history[uid][-10:]
+    # mantém as últimas 20 mensagens para contexto melhor
+    history = chat_history[uid][-20:]
+    system = system_override or ALINE_SYSTEM
     payload = {
-        "model": "llama-3.1-8b-instant",
-        "messages": [{"role": "system", "content": ALINE_SYSTEM}] + history,
-        "max_tokens": 150,
-        "temperature": 0.9,
+        "model": "llama-3.3-70b-versatile",
+        "messages": [{"role": "system", "content": system}] + history,
+        "max_tokens": 200,
+        "temperature": 0.92,
     }
     try:
         r = requests.post(GROQ_URL, json=payload,
@@ -248,21 +265,27 @@ def answer_cb(cbid):
     requests.post(f"{BASE}/answerCallbackQuery", json={"callback_query_id": cbid}, timeout=10)
 
 def send_welcome(cid):
-    """Envia vídeo ou foto + menu de boas vindas + áudio de apresentação"""
+    """Envia vídeo/foto de boas vindas + áudio + depois o menu (com delay natural)"""
     global PHOTO_URL, VIDEO_URL
-    if VIDEO_URL:
-        send_video(cid, VIDEO_URL, WELCOME_TEXT, MENU_KB)
+    # caption curto e natural — sem jogar menu na cara logo
+    caption = "oi 😏 que bom que você apareceu…"
+    if VIDEO_FILE_ID_FIXO:
+        send_video(cid, VIDEO_FILE_ID_FIXO, caption)
     elif PHOTO_URL:
-        send_photo(cid, PHOTO_URL, WELCOME_TEXT, MENU_KB)
+        send_photo(cid, PHOTO_URL, caption)
     else:
-        send(cid, WELCOME_TEXT, MENU_KB)
-    # envia áudio de apresentação logo depois
-    _audio = globals().get("AUDIO_FILE_ID")
+        send(cid, caption)
+    # áudio de apresentação
+    _audio = AUDIO_FILE_ID_FIXO
     if _audio:
+        time.sleep(1)
         requests.post(f"{BASE}/sendVoice", json={
             "chat_id": cid,
             "voice": _audio
         }, timeout=15)
+    # pequeno delay antes do menu — parece mais humano
+    time.sleep(2)
+    send(cid, "o que você prefere, gostoso? 👇", MENU_KB)
 
 def handle_msg(msg):
     global owner_id, PHOTO_URL, VIDEO_URL, AMOSTRA_FILE_ID, AUDIO_FILE_ID, AUDIO_AMOSTRA
@@ -385,60 +408,54 @@ def handle_msg(msg):
             _audio_amostra = globals().get("AUDIO_AMOSTRA")
 
             if fala_golpe:
-                resp_golpe = (
-                    "bb eu não preciso de golpe pra ganhar dinheiro não 😂 "
-                    "meu conteúdo fala por si mesmo… tenho clientes que compram faz meses "
-                    "e voltam sempre 🥰 pode confiar em mim"
-                )
-                send(uid, resp_golpe, MENU_KB)
+                resp_golpe = groq_resposta(uid, text) or "bb eu não preciso de golpe não kkk tenho cliente que tá comigo faz meses 😂 pode confiar"
+                send(uid, resp_golpe)
                 if _audio:
                     requests.post(f"{BASE}/sendVoice", json={
                         "chat_id": uid,
-                        "voice": _audio,
-                        "caption": "olha aqui minha voz bb… sou real demais 😘🔥"
+                        "voice": _audio
                     }, timeout=15)
 
             elif pediu_amostra and not amostra_enviada.get(uid) and _amostra:
-                # primeira vez — envia foto amostra
+                # primeira vez — envia foto amostra SEM menu (deixa a conversa fluir)
                 requests.post(f"{BASE}/sendPhoto", json={
                     "chat_id": uid,
                     "photo": _amostra,
-                    "caption": "isso é só uma provinha bb… 😏🔥\no que tá no pack é bem mais intenso 😈",
-                    "reply_markup": MENU_KB
+                    "caption": "isso é só uma provinha bb 😏🔥\no que tá no pack é bem mais pesado que isso 😈",
                 }, timeout=15)
                 amostra_enviada[uid] = True
                 logging.info(f"amostra→{uid} enviada")
-                # envia áudio da amostra se tiver, senão usa o de apresentação
+                # envia áudio da amostra se tiver
                 _voz = _audio_amostra or _audio
                 if _voz:
+                    time.sleep(1)
                     requests.post(f"{BASE}/sendVoice", json={
                         "chat_id": uid,
                         "voice": _voz
                     }, timeout=15)
 
             elif pediu_amostra and amostra_enviada.get(uid):
-                # já recebeu — suspense
-                payload = {
-                    "model": "llama-3.1-8b-instant",
-                    "messages": [
-                        {"role": "system", "content": ALINE_SUSPENSE},
-                        {"role": "user", "content": text}
-                    ],
-                    "max_tokens": 100,
-                    "temperature": 0.9,
-                }
-                try:
-                    r = requests.post(GROQ_URL, json=payload,
-                                      headers={"Authorization": f"Bearer {GROQ_API_KEY}"}, timeout=15)
-                    suspense = r.json()["choices"][0]["message"]["content"].strip()
-                except Exception:
-                    suspense = "bb aquela foi a provinha… o restante é exclusivo pra quem compra 😏🔥"
-                send(uid, suspense, MENU_KB)
+                # já recebeu — suspense sem menu
+                suspense = groq_resposta(uid, text, system_override=ALINE_SUSPENSE)
+                if not suspense:
+                    suspense = "bb aquela foi só uma provinha… o que tá no pack é pesado demais 😈 quer ver?"
+                send(uid, suspense)
+                # depois de criar suspense, aí mostra o menu
+                time.sleep(2)
+                send(uid, "o que você prefere, gostoso? 👇", MENU_KB)
 
             else:
-                # conversa normal
+                # conversa natural — a IA decide quando mencionar os produtos
                 resposta = groq_resposta(uid, text)
-                send(uid, resposta or "oi bb 😘", MENU_KB)
+                if not resposta:
+                    resposta = "oi bb 😘"
+                send(uid, resposta)
+                # só mostra o menu se a IA mencionou os produtos na resposta
+                palavras_produto = ["pack", "r$25", "vip", "r$39", "canal", "conteúdo exclusivo", "pix", "pagamento"]
+                mencionou_produto = any(p in resposta.lower() for p in palavras_produto)
+                if mencionou_produto:
+                    time.sleep(1)
+                    send(uid, "o que você prefere? 👇", MENU_KB)
 
         elif int(uid) != int(owner_id or 0):
             send(uid, DESCONHECIDO_TEXT, MENU_KB)
