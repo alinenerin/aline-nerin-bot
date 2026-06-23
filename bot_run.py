@@ -1,4 +1,4 @@
-import requests, time, logging, os, json, threading
+import requests, time, logging, os, json, threading, re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
@@ -38,7 +38,9 @@ NUNCA:
 - Quebre o personagem
 - Mande menus ou botões no meio de conversa natural
 - Escreva mais de 3 linhas por mensagem
-- Use linguagem formal ou robotizada"""
+- Use linguagem formal ou robotizada
+- Mencione links, URLs, canais externos, t.me ou qualquer endereço web
+- Inclua instruções de "join channel" ou "use this bot""""
 
 ALINE_SUSPENSE = """Você é Aline Nerin, mulher real, 22 anos, criadora de conteúdo adulto.
 O cliente já viu sua foto amostra e quer mais de graça.
@@ -71,7 +73,7 @@ def groq_resposta(uid, user_msg, system_override=None):
     history = chat_history[uid][-20:]
     system = system_override or ALINE_SYSTEM
     payload = {
-        "model": "llama-3.3-70b-versatile",
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
         "messages": [{"role": "system", "content": system}] + history,
         "max_tokens": 200,
         "temperature": 0.92,
@@ -80,12 +82,16 @@ def groq_resposta(uid, user_msg, system_override=None):
         r = requests.post(GROQ_URL, json=payload,
                           headers={"Authorization": f"Bearer {GROQ_API_KEY}"}, timeout=15)
         reply = r.json()["choices"][0]["message"]["content"].strip()
-        # remove qualquer link ou menção que o Telegram possa renderizar como preview
-        import re
+        # limpa qualquer link, menção, instrução de bot que a IA possa gerar
         reply = re.sub(r'https?://\S+', '', reply)
-        reply = re.sub(r't\.me/\S+', '', reply)
+        reply = re.sub(r't\.me/\S+', '', reply, flags=re.IGNORECASE)
         reply = re.sub(r'@\w+', '', reply)
+        reply = re.sub(r'To use this bot.*', '', reply, flags=re.IGNORECASE | re.DOTALL)
+        reply = re.sub(r'you must join.*', '', reply, flags=re.IGNORECASE | re.DOTALL)
+        reply = re.sub(r'join our channel.*', '', reply, flags=re.IGNORECASE | re.DOTALL)
         reply = reply.strip()
+        if not reply:
+            reply = "kkk amor 😘"
         chat_history[uid].append({"role": "assistant", "content": reply})
         return reply
     except Exception as e:
