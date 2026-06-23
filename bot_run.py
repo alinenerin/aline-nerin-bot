@@ -492,6 +492,23 @@ class HealthHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"Aline Nerin Bot - Online!")
+
+    def do_POST(self):
+        if self.path == "/webhook":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                update = json.loads(body)
+                threading.Thread(target=process_update, args=(update,), daemon=True).start()
+            except Exception as e:
+                logging.error(f"Webhook error: {e}")
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"OK")
+        else:
+            self.send_response(404)
+            self.end_headers()
+
     def log_message(self, *args):
         pass
 
@@ -500,6 +517,17 @@ def start_health_server():
     server = HTTPServer(("0.0.0.0", port), HealthHandler)
     logging.info(f"Health server rodando na porta {port}")
     server.serve_forever()
+
+def process_update(u):
+    """Processa um update (usado pelo webhook)"""
+    try:
+        logging.info(f"Update {u.get('update_id')}")
+        if "message" in u:
+            handle_msg(u["message"])
+        elif "callback_query" in u:
+            handle_cb(u["callback_query"])
+    except Exception as e:
+        logging.error(f"process_update erro: {e}")
 
 # ── LOOP PRINCIPAL ──────────────────────────────────────────────────────────
 
@@ -515,11 +543,7 @@ while True:
         updates = r.json().get("result", [])
         for u in updates:
             offset = u["update_id"] + 1
-            logging.info(f"Update {u['update_id']}")
-            if "message" in u:
-                handle_msg(u["message"])
-            elif "callback_query" in u:
-                handle_cb(u["callback_query"])
+            process_update(u)
     except Exception as e:
         logging.error(f"Erro: {e}")
         time.sleep(2)
