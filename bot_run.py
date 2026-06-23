@@ -457,11 +457,6 @@ def handle_msg(msg):
                 typing(uid, segundos=len(resp_golpe) // 30 + 2)
                 send(uid, resp_golpe)
                 save_chat_history()
-                if _audio:
-                    requests.post(f"{BASE}/sendVoice", json={
-                        "chat_id": uid,
-                        "voice": _audio
-                    }, timeout=15)
 
             elif pediu_amostra and not amostra_enviada.get(uid) and _amostra:
                 # primeira vez — envia foto amostra SEM menu (deixa a conversa fluir)
