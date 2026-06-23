@@ -1,8 +1,9 @@
 import requests, time, logging, os, json, threading, re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY", """")
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_MODEL = "google/gemma-4-31b-it:free"
 
 ALINE_SYSTEM = """Você é Aline Nerin, uma mulher real de 22 anos de São José do Rio Preto, SP.
 Você cria conteúdo adulto exclusivo e vende pelo Telegram.
@@ -69,33 +70,32 @@ def groq_resposta(uid, user_msg, system_override=None):
     if uid not in chat_history:
         chat_history[uid] = []
     chat_history[uid].append({"role": "user", "content": user_msg})
-    # mantém as últimas 20 mensagens para contexto melhor
     history = chat_history[uid][-20:]
     system = system_override or ALINE_SYSTEM
     payload = {
-        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "model": OPENROUTER_MODEL,
         "messages": [{"role": "system", "content": system}] + history,
         "max_tokens": 200,
         "temperature": 0.92,
     }
     try:
-        r = requests.post(GROQ_URL, json=payload,
-                          headers={"Authorization": f"Bearer {GROQ_API_KEY}"}, timeout=15)
+        r = requests.post(OPENROUTER_URL, json=payload,
+                          headers={"Authorization": f"Bearer {OPENROUTER_KEY}",
+                                   "HTTP-Referer": "https://aline-nerin-bot.onrender.com",
+                                   "X-Title": "Aline Nerin Bot"},
+                          timeout=20)
         reply = r.json()["choices"][0]["message"]["content"].strip()
-        # limpa qualquer link, menção, instrução de bot que a IA possa gerar
+        # limpa qualquer link residual
         reply = re.sub(r'https?://\S+', '', reply)
         reply = re.sub(r't\.me/\S+', '', reply, flags=re.IGNORECASE)
         reply = re.sub(r'@\w+', '', reply)
-        reply = re.sub(r'To use this bot.*', '', reply, flags=re.IGNORECASE | re.DOTALL)
-        reply = re.sub(r'you must join.*', '', reply, flags=re.IGNORECASE | re.DOTALL)
-        reply = re.sub(r'join our channel.*', '', reply, flags=re.IGNORECASE | re.DOTALL)
         reply = reply.strip()
         if not reply:
             reply = "kkk amor 😘"
         chat_history[uid].append({"role": "assistant", "content": reply})
         return reply
     except Exception as e:
-        logging.error(f"Groq erro: {e}")
+        logging.error(f"AI erro: {e}")
         return None
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
