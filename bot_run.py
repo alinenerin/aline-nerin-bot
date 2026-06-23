@@ -234,6 +234,11 @@ DESCONHECIDO_TEXT = (
 
 # ── FUNÇÕES ─────────────────────────────────────────────────────────────────
 
+def typing(cid, segundos=2):
+    """Mostra 'digitando...' por N segundos"""
+    requests.post(f"{BASE}/sendChatAction", json={"chat_id": cid, "action": "typing"}, timeout=5)
+    time.sleep(segundos)
+
 def send(cid, text, kb=None):
     d = {
         "chat_id": cid,
@@ -295,7 +300,7 @@ def send_welcome(cid):
             "voice": _audio
         }, timeout=15)
     # pequeno delay antes do menu — parece mais humano
-    time.sleep(2)
+    typing(cid, segundos=3)
     send(cid, "o que você prefere, gostoso? 👇", MENU_KB)
 
 def handle_msg(msg):
@@ -420,6 +425,7 @@ def handle_msg(msg):
 
             if fala_golpe:
                 resp_golpe = groq_resposta(uid, text) or "bb eu não preciso de golpe não kkk tenho cliente que tá comigo faz meses 😂 pode confiar"
+                typing(uid, segundos=len(resp_golpe) // 30 + 2)
                 send(uid, resp_golpe)
                 if _audio:
                     requests.post(f"{BASE}/sendVoice", json={
@@ -450,6 +456,7 @@ def handle_msg(msg):
                 suspense = groq_resposta(uid, text, system_override=ALINE_SUSPENSE)
                 if not suspense:
                     suspense = "bb aquela foi só uma provinha… o que tá no pack é pesado demais 😈 quer ver?"
+                typing(uid, segundos=len(suspense) // 30 + 2)
                 send(uid, suspense)
                 # depois de criar suspense, aí mostra o menu
                 time.sleep(2)
@@ -460,6 +467,7 @@ def handle_msg(msg):
                 resposta = groq_resposta(uid, text)
                 if not resposta:
                     resposta = "oi bb 😘"
+                typing(uid, segundos=len(resposta) // 25 + 2)
                 send(uid, resposta)
                 # só mostra o menu se a IA mencionou os produtos na resposta
                 palavras_produto = ["pack", "r$25", "vip", "r$39", "canal", "conteúdo exclusivo", "pix", "pagamento"]
