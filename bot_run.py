@@ -109,6 +109,28 @@ AMOSTRA_FILE_ID_FIXO = "AgACAgEAAxkBAAORajkb6DFHIHyuK7o8_9J7eGIBdAoAAuwLaxtt5dBF
 AUDIO_FILE_ID_FIXO        = "AwACAgQAAxkBAAPxajktrDTgCtRQysUW1rOefgVfQgcAAqwHAAIG_aVQRbvo_1oLOiE8BA"
 AUDIO_AMOSTRA_FILE_ID_FIXO = "AwACAgQAAxkBAAIBC2o5NwlEpLmNC_ubYT9ruYYY7ZmWAAJVBwACBGOtUKrboec38LvUPAQ"
 
+CHAT_HISTORY_FILE = "chat_history.json"
+
+def load_chat_history():
+    global chat_history, amostra_enviada
+    if os.path.exists(CHAT_HISTORY_FILE):
+        try:
+            d = json.load(open(CHAT_HISTORY_FILE))
+            chat_history    = {int(k): v for k, v in d.get("history", {}).items()}
+            amostra_enviada = {int(k): v for k, v in d.get("amostra", {}).items()}
+            logging.info(f"Histórico carregado: {len(chat_history)} usuários")
+        except Exception as e:
+            logging.error(f"Erro ao carregar histórico: {e}")
+
+def save_chat_history():
+    try:
+        json.dump({
+            "history": {str(k): v for k, v in chat_history.items()},
+            "amostra": {str(k): v for k, v in amostra_enviada.items()}
+        }, open(CHAT_HISTORY_FILE, "w"), ensure_ascii=False)
+    except Exception as e:
+        logging.error(f"Erro ao salvar histórico: {e}")
+
 def load_state():
     global PHOTO_URL, VIDEO_URL, owner_id, AMOSTRA_FILE_ID
     VIDEO_URL = VIDEO_FILE_ID_FIXO  # sempre garante o vídeo fixo
@@ -141,6 +163,7 @@ AUDIO_FILE_ID   = AUDIO_FILE_ID_FIXO         # áudio de apresentação
 AUDIO_AMOSTRA   = AUDIO_AMOSTRA_FILE_ID_FIXO  # áudio que vai junto com a amostra
 
 load_state()
+load_chat_history()
 
 MENU_KB = {"inline_keyboard": [
     [{"text": "🔥 Pack Exclusivo — R$25", "callback_data": "pack"}],
@@ -427,6 +450,7 @@ def handle_msg(msg):
                 resp_golpe = groq_resposta(uid, text) or "bb eu não preciso de golpe não kkk tenho cliente que tá comigo faz meses 😂 pode confiar"
                 typing(uid, segundos=len(resp_golpe) // 30 + 2)
                 send(uid, resp_golpe)
+                save_chat_history()
                 if _audio:
                     requests.post(f"{BASE}/sendVoice", json={
                         "chat_id": uid,
@@ -441,6 +465,7 @@ def handle_msg(msg):
                     "caption": "isso é só uma provinha bb 😏🔥\no que tá no pack é bem mais pesado que isso 😈",
                 }, timeout=15)
                 amostra_enviada[uid] = True
+                save_chat_history()
                 logging.info(f"amostra→{uid} enviada")
                 # envia áudio da amostra se tiver
                 _voz = _audio_amostra or _audio
@@ -458,6 +483,7 @@ def handle_msg(msg):
                     suspense = "bb aquela foi só uma provinha… o que tá no pack é pesado demais 😈 quer ver?"
                 typing(uid, segundos=len(suspense) // 30 + 2)
                 send(uid, suspense)
+                save_chat_history()
                 # depois de criar suspense, aí mostra o menu
                 time.sleep(2)
                 send(uid, "o que você prefere, gostoso? 👇", MENU_KB)
@@ -469,6 +495,7 @@ def handle_msg(msg):
                     resposta = "oi bb 😘"
                 typing(uid, segundos=len(resposta) // 25 + 2)
                 send(uid, resposta)
+                save_chat_history()
                 # só mostra o menu se a IA mencionou os produtos na resposta
                 palavras_produto = ["pack", "r$25", "vip", "r$39", "canal", "conteúdo exclusivo", "pix", "pagamento"]
                 mencionou_produto = any(p in resposta.lower() for p in palavras_produto)
