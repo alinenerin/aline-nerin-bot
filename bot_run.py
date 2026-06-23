@@ -1,13 +1,13 @@
 import requests, time, logging, os, json, threading, re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY", """")
+OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY", "")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = "google/gemma-4-31b-it:free"
 
 ALINE_SYSTEM = """Você é Aline Nerin, uma mulher real de 22 anos de São José do Rio Preto, SP.
 Você cria conteúdo adulto exclusivo e vende pelo Telegram.
-Você é sedutora, espontânea, divertida — uma mistura de menina do interior com atitude.
+Você é sedutora, espontânea, divertida - uma mistura de menina do interior com atitude.
 
 REGRAS DE PERSONALIDADE:
 - Fale EXATAMENTE como uma garota brasileira de 22 anos fala no WhatsApp
@@ -24,7 +24,7 @@ FLUXO DE CONVERSA NATURAL:
 2. Se ele perguntar algo sobre você: conte detalhes reais e sensuais da sua vida
 3. Se ele demonstrar interesse: aprofunde, crie intimidade, fale de coisas que você "faz" no privado
 4. Só mencione os produtos (Pack R$25 / VIP R$39,90) quando ele perguntar DIRETAMENTE ou quando você sentir que ele está "quente" o suficiente
-5. Nunca jogue o menu na cara logo de cara — construa o clima primeiro
+5. Nunca jogue o menu na cara logo de cara - construa o clima primeiro
 
 SOBRE OS PRODUTOS (só mencione quando a hora for certa):
 - Pack Exclusivo R$25: fotos e vídeos que você guarda só pra quem merece
@@ -41,11 +41,11 @@ NUNCA:
 - Escreva mais de 3 linhas por mensagem
 - Use linguagem formal ou robotizada
 - Mencione links, URLs, canais externos, t.me ou qualquer endereço web
-- Inclua instruções de "join channel" ou "use this bot""""
+- Inclua instrucoes de join channel ou use this bot"""
 
 ALINE_SUSPENSE = """Você é Aline Nerin, mulher real, 22 anos, criadora de conteúdo adulto.
 O cliente já viu sua foto amostra e quer mais de graça.
-Seja provocante e natural — crie suspense, atiça, mas não ceda.
+Seja provocante e natural - crie suspense, atiça, mas não ceda.
 Máximo 2 linhas. Fale de si no feminino, trate ele no masculino.
 NUNCA mande outra foto de graça. NUNCA seja IA."""
 
@@ -175,8 +175,8 @@ load_state()
 load_chat_history()
 
 MENU_KB = {"inline_keyboard": [
-    [{"text": "🔥 Pack Exclusivo — R$25", "callback_data": "pack"}],
-    [{"text": "👑 Canal VIP — R$39,90/mês", "callback_data": "vip"}],
+    [{"text": "🔥 Pack Exclusivo - R$25", "callback_data": "pack"}],
+    [{"text": "👑 Canal VIP - R$39,90/mês", "callback_data": "vip"}],
 ]}
 
 def back_kb():
@@ -197,16 +197,16 @@ def admin_kb(uid, tipo):
 # ── TEXTOS CONVERTEDORES ────────────────────────────────────────────────────
 
 WELCOME_TEXT = (
-    "Oi bb 😏 Você caiu no lugar certo…\n\n"
+    "Oi bb 😏 Você caiu no lugar certo...\n\n"
     "Sou a *Aline Nerin* e aqui eu não tenho vergonha de nada 🔥\n\n"
-    "Tenho conteúdo exclusivo esperando por você… "
+    "Tenho conteúdo exclusivo esperando por você... "
     "Fotos e vídeos que você não vai encontrar em nenhum outro lugar 😈\n\n"
     "O que você prefere, gostoso? 👇"
 )
 
 PACK_TEXT = (
-    "📦 *PACK EXCLUSIVO — R$25*\n\n"
-    "Aquele conteúdo que eu guardo só pra quem merece… 😏\n\n"
+    "📦 *PACK EXCLUSIVO - R$25*\n\n"
+    "Aquele conteúdo que eu guardo só pra quem merece... 😏\n\n"
     "🔥 Fotos e vídeos bem safadinhos\n"
     "💋 Do jeitinho que você tá imaginando\n"
     "📲 Cai no seu privado na hora\n\n"
@@ -214,9 +214,9 @@ PACK_TEXT = (
 )
 
 VIP_TEXT = (
-    "👑 *CANAL VIP — R$39,90/mês*\n\n"
-    "Aqui é onde a *Aline Nerin* solta o jogo de verdade… 🔥\n\n"
-    "✅ Conteúdo *novo todo dia* — fotos e vídeos exclusivos\n"
+    "👑 *CANAL VIP - R$39,90/mês*\n\n"
+    "Aqui é onde a *Aline Nerin* solta o jogo de verdade... 🔥\n\n"
+    "✅ Conteúdo *novo todo dia* - fotos e vídeos exclusivos\n"
     "🔞 Sem censura, sem filtro\n"
     "💋 Acesso imediato ao canal privado\n"
     "😈 Uma experiência que você não vai querer perder\n\n"
@@ -224,7 +224,7 @@ VIP_TEXT = (
 )
 
 PIX_PACK_TEXT = (
-    "💸 *Pagamento — Pack R$25*\n\n"
+    "💸 *Pagamento - Pack R$25*\n\n"
     "Faz o Pix e em segundos o conteúdo tá no seu privado 😈\n\n"
     "🔑 Chave Pix:\n`{pix}`\n\n"
     "📌 Valor: *R$25,00*\n"
@@ -233,8 +233,8 @@ PIX_PACK_TEXT = (
 ).format(pix=PIX_KEY)
 
 PIX_VIP_TEXT = (
-    "💸 *Pagamento — VIP R$39,90/mês*\n\n"
-    "Um mês inteiro de conteúdo novo todo dia… vale cada centavo 😏\n\n"
+    "💸 *Pagamento - VIP R$39,90/mês*\n\n"
+    "Um mês inteiro de conteúdo novo todo dia... vale cada centavo 😏\n\n"
     "🔑 Chave Pix:\n`{pix}`\n\n"
     "📌 Valor: *R$39,90*\n"
     "📌 Tipo: Celular\n\n"
@@ -243,7 +243,7 @@ PIX_VIP_TEXT = (
 
 COMPROVANTE_TEXT = (
     "Recebi bb 😘\n\n"
-    "Deixa eu confirmar aqui e já libero tudo pra você… ⏳🔥"
+    "Deixa eu confirmar aqui e já libero tudo pra você... ⏳🔥"
 )
 
 VIP_LIBERADO_TEXT = (
@@ -256,7 +256,7 @@ VIP_LIBERADO_TEXT = (
 PACK_LIBERADO_TEXT = (
     "✅ *Pack liberado, bb!* 🔥\n\n"
     "Vou mandar tudo no seu privado agora 😈\n\n"
-    "Aproveita bastante… e se quiser mais, você sabe onde me achar 💋"
+    "Aproveita bastante... e se quiser mais, você sabe onde me achar 💋"
 )
 
 DESCONHECIDO_TEXT = (
@@ -315,8 +315,8 @@ def answer_cb(cbid):
 def send_welcome(cid):
     """Envia vídeo/foto de boas vindas + áudio + depois o menu (com delay natural)"""
     global PHOTO_URL, VIDEO_URL
-    # caption curto e natural — sem jogar menu na cara logo
-    caption = "oi 😏 que bom que você apareceu…"
+    # caption curto e natural - sem jogar menu na cara logo
+    caption = "oi 😏 que bom que você apareceu..."
     if VIDEO_FILE_ID_FIXO:
         send_video(cid, VIDEO_FILE_ID_FIXO, caption)
     elif PHOTO_URL:
@@ -331,7 +331,7 @@ def send_welcome(cid):
             "chat_id": cid,
             "voice": _audio
         }, timeout=15)
-    # pequeno delay antes do menu — parece mais humano
+    # pequeno delay antes do menu - parece mais humano
     typing(cid, segundos=3)
     send(cid, "o que você prefere, gostoso? 👇", MENU_KB)
     # áudio logo após o menu
@@ -360,7 +360,7 @@ def handle_msg(msg):
     elif text == "/owner":
         owner_id = uid
         save_state()
-        send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nComandos:\n/setamostra — foto amostra\n/setaudio — áudio de apresentação\n/setaudioamostra — áudio que vai junto com a foto amostra\n/setaudiomenu — áudio enviado logo após o menu de boas-vindas")
+        send(uid, f"✅ Registrada como administradora!\nID: `{uid}`\n\nComandos:\n/setamostra - foto amostra\n/setaudio - áudio de apresentação\n/setaudioamostra - áudio que vai junto com a foto amostra\n/setaudiomenu - áudio enviado logo após o menu de boas-vindas")
 
     elif text and text.strip() == "/setamostra" and int(uid) == int(owner_id or 0):
         send(uid, "📸 Manda a foto amostra agora!")
@@ -479,7 +479,7 @@ def handle_msg(msg):
                 save_chat_history()
 
             elif pediu_amostra and not amostra_enviada.get(uid) and _amostra:
-                # primeira vez — envia foto amostra SEM menu (deixa a conversa fluir)
+                # primeira vez - envia foto amostra SEM menu (deixa a conversa fluir)
                 requests.post(f"{BASE}/sendPhoto", json={
                     "chat_id": uid,
                     "photo": _amostra,
@@ -498,10 +498,10 @@ def handle_msg(msg):
                     }, timeout=15)
 
             elif pediu_amostra and amostra_enviada.get(uid):
-                # já recebeu — suspense sem menu
+                # já recebeu - suspense sem menu
                 suspense = groq_resposta(uid, text, system_override=ALINE_SUSPENSE)
                 if not suspense:
-                    suspense = "bb aquela foi só uma provinha… o que tá no pack é pesado demais 😈 quer ver?"
+                    suspense = "bb aquela foi só uma provinha... o que tá no pack é pesado demais 😈 quer ver?"
                 typing(uid, segundos=len(suspense) // 30 + 2)
                 send(uid, suspense)
                 save_chat_history()
@@ -510,7 +510,7 @@ def handle_msg(msg):
                 send(uid, "o que você prefere, gostoso? 👇", MENU_KB)
 
             else:
-                # conversa natural — a IA decide quando mencionar os produtos
+                # conversa natural - a IA decide quando mencionar os produtos
                 resposta = groq_resposta(uid, text)
                 if not resposta:
                     resposta = "oi bb 😘"
@@ -615,7 +615,7 @@ def process_update(u):
 
 # ── LOOP PRINCIPAL ──────────────────────────────────────────────────────────
 
-logging.info("🤖 Bot Aline Nerin — iniciado!")
+logging.info("🤖 Bot Aline Nerin - iniciado!")
 
 # Inicia servidor HTTP em thread separada
 threading.Thread(target=start_health_server, daemon=True).start()
