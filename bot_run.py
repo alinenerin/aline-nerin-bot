@@ -650,7 +650,7 @@ offset = 0
 logging.info("Bot iniciando polling...")
 while True:
     try:
-        r = requests.get(f"{BASE}/getUpdates", params={"offset": offset, "timeout": 25}, timeout=30)
+        r = requests.get(f"{BASE}/getUpdates", params={"offset": offset, "timeout": 25, "allowed_updates": ["message","callback_query","inline_query"]}, timeout=30)
         updates = r.json().get("result", [])
         for u in updates:
             offset = u["update_id"] + 1
