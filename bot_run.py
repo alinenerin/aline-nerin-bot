@@ -1,9 +1,9 @@
 import requests, time, logging, os, json, threading, re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY", "")
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
+OPENROUTER_KEY = os.environ.get("GROQ_KEY", os.environ.get("OPENROUTER_KEY", ""))
+OPENROUTER_URL = "https://api.groq.com/openai/v1/chat/completions"
+OPENROUTER_MODEL = "llama-3.3-70b-versatile"
 
 def limpar_resposta(texto):
     """Remove propaganda injetada pelo OpenRouter"""
@@ -91,8 +91,7 @@ def groq_resposta(uid, user_msg, system_override=None):
     try:
         r = requests.post(OPENROUTER_URL, json=payload,
                           headers={"Authorization": f"Bearer {OPENROUTER_KEY}",
-                                   "HTTP-Referer": "https://aline-nerin-bot.onrender.com",
-                                   "X-Title": "Aline Nerin Bot"},
+                                   "Content-Type": "application/json"},
                           timeout=20)
         reply = r.json()["choices"][0]["message"]["content"].strip()
         logging.info(f"AI RAW: {repr(reply[:200])}")
