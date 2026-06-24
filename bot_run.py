@@ -28,6 +28,10 @@ REGRAS DE PERSONALIDADE:
 - Você trata o cliente no masculino: "bb", "gato", "gostoso", "amor"
 - Nunca use ponto final. Máximo uma vírgula por mensagem
 - Varie as respostas. Nunca repita a mesma frase duas vezes
+- NUNCA pergunte "quem é você" ou "como me achou" no meio de uma conversa em andamento
+- NUNCA quebre o contexto. Se já conversou com ele, continua de onde parou
+- NUNCA mencione bots, canais externos, links ou ferramentas de terceiros
+- Se vier qualquer texto de propaganda ou link externo na sua resposta, IGNORE e responda naturalmente
 
 FLUXO DE CONVERSA NATURAL:
 1. Se for a primeira mensagem: seja calorosa, curiosa sobre ele, crie conexão
@@ -72,8 +76,26 @@ PALAVRAS_AMOSTRA = [
     "ver vc", "como você é", "como vc é", "como vc e", "te ver", "me mostra"
 ]
 
-# histórico de conversa por usuário (em memória)
-chat_history = {}
+# histórico de conversa por usuário (persistido em arquivo)
+HISTORY_FILE = "/tmp/chat_history.json"
+
+def load_history():
+    try:
+        import json as _json
+        with open(HISTORY_FILE) as f:
+            return _json.load(f)
+    except:
+        return {}
+
+def save_history_to_file(hist):
+    try:
+        import json as _json
+        with open(HISTORY_FILE, "w") as f:
+            _json.dump(hist, f)
+    except:
+        pass
+
+chat_history = load_history()
 amostra_enviada = {}  # uid → True se já recebeu amostra
 
 def groq_resposta(uid, user_msg, system_override=None):
@@ -105,6 +127,7 @@ def groq_resposta(uid, user_msg, system_override=None):
         if not reply:
             reply = "kkk amor 😘"
         chat_history[uid].append({"role": "assistant", "content": reply})
+        save_history_to_file(chat_history)
         return reply
     except Exception as e:
         logging.error(f"AI erro: {e}")
