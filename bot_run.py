@@ -5,6 +5,16 @@ OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY", "")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
 
+def limpar_resposta(texto):
+    """Remove propaganda injetada pelo OpenRouter"""
+    if not texto:
+        return texto
+    linhas = texto.split("\n")
+    linhas_limpas = [l for l in linhas if "t.me/" not in l and "To use this bot" not in l and "join our channel" not in l and "A_ToolsX" not in l]
+    return "\n".join(linhas_limpas).strip()
+
+
+
 ALINE_SYSTEM = """Você é Aline Nerin, uma mulher real de 22 anos de São José do Rio Preto, SP.
 Você cria conteúdo adulto exclusivo e vende pelo Telegram.
 Você é sedutora, espontânea, divertida - uma mistura de menina do interior com atitude.
@@ -528,7 +538,7 @@ def handle_msg(msg):
 
             else:
                 # conversa natural - a IA decide quando mencionar os produtos
-                resposta = groq_resposta(uid, text)
+                resposta = limpar_resposta(groq_resposta(uid, text))
                 if not resposta:
                     resposta = "oi bb 😘"
                 typing(uid, segundos=len(resposta) // 25 + 2)
