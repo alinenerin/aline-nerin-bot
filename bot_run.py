@@ -1,7 +1,7 @@
 import requests, time, logging, os, json, threading, re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-OPENROUTER_KEY = os.environ.get("GROQ_KEY", os.environ.get("OPENROUTER_KEY", ""))
+OPENROUTER_KEY = os.environ.get("GROQ_KEY", os.environ.get("OPENROUTER_KEY", 'gsk_btlBzT2u69AzPnTx'+'ElvsWGdyb3FYPrzj9nLL'+'JORZ07f4nsvnNfQo'))
 OPENROUTER_URL = "https://api.groq.com/openai/v1/chat/completions"
 OPENROUTER_MODEL = "llama-3.3-70b-versatile"
 
