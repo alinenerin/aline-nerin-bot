@@ -637,14 +637,7 @@ logging.info("🤖 Bot Aline Nerin - iniciado!")
 # Inicia servidor HTTP em thread separada
 threading.Thread(target=start_health_server, daemon=True).start()
 
-offset = 0
+# Apenas mantém o processo vivo (webhook processa os updates)
+logging.info("Bot rodando via webhook...")
 while True:
-    try:
-        r = requests.get(f"{BASE}/getUpdates", params={"offset": offset, "timeout": 25}, timeout=30)
-        updates = r.json().get("result", [])
-        for u in updates:
-            offset = u["update_id"] + 1
-            process_update(u)
-    except Exception as e:
-        logging.error(f"Erro: {e}")
-        time.sleep(2)
+    time.sleep(60)
