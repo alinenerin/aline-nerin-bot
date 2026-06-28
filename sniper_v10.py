@@ -128,31 +128,55 @@ OTC_CACHE_TTL = 55
 
 def buscar_velas_otc_batch(pares_otc, n=65):
     """
-    Busca velas M1 dos pares OTC via IQ Option.
+    Busca velas M1 dos pares OTC via IQ Option WebSocket (get_candles).
     pares_otc: lista de dicts {"nome": "EURUSD-OTC", "id": 76}
     Retorna {nome: [velas]}
     """
     agora_ts = time.time()
     resultado = {}
 
+    if not _iq_conectar():
+        print("  ❌ IQ Option WebSocket indisponível")
+        return {par["nome"]: [] for par in pares_otc}
+
     for par in pares_otc:
-        nome = par["nome"]
+        nome     = par["nome"]
         ativo_id = par["id"]
+
         cached = _otc_cache.get(nome)
         ts     = _otc_cache_ts.get(nome, 0)
         if cached and (agora_ts - ts) < OTC_CACHE_TTL:
             resultado[nome] = cached
             continue
 
-        velas = _buscar_velas_iq_rest(nome, ativo_id, n)
-        if velas:
-            _otc_cache[nome]    = velas
-            _otc_cache_ts[nome] = agora_ts
-            resultado[nome]     = velas
-            print(f"  📡 OTC {nome}: {len(velas)} velas")
-        else:
+        try:
+            raw = _iq_api.get_candles(ativo_id, 60, n, time.time())
+            velas = []
+            if raw:
+                for v in raw:
+                    try:
+                        velas.append({
+                            "open":  float(v.get("open",  v.get("o", 0))),
+                            "close": float(v.get("close", v.get("c", 0))),
+                            "max":   float(v.get("max",   v.get("h", 0))),
+                            "min":   float(v.get("min",   v.get("l", 0))),
+                            "t":     v.get("from", v.get("t", 0)),
+                        })
+                    except:
+                        pass
+                velas = sorted(velas, key=lambda x: x["t"])
+
+            if velas:
+                _otc_cache[nome]    = velas
+                _otc_cache_ts[nome] = agora_ts
+                resultado[nome]     = velas
+                print(f"  📡 OTC {nome}: {len(velas)} velas (WS)")
+            else:
+                resultado[nome] = []
+                print(f"  ⚠️ OTC {nome}: sem dados")
+        except Exception as e:
             resultado[nome] = []
-            print(f"  ⚠️ OTC {nome}: sem dados")
+            print(f"  ⚠️ OTC {nome} erro WS: {e}")
 
     return resultado
 
