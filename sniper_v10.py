@@ -61,7 +61,47 @@ def tg(msg):
         print(f"  ⚠️ Telegram: {e}")
 
 # ══════════════════════════════════════════════════════════════════
-#  IQ OPTION — FONTE OTC (FIM DE SEMANA)
+#  IQ OPTION — WEBSOCKET (fonte principal OTC)
+# ══════════════════════════════════════════════════════════════════
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from iqoptionapi.stable_api import IQ_Option
+import iqoptionapi.global_value as _gv
+
+_iq_api       = None
+_iq_conectado = False
+_iq_lock_ws   = threading.Lock()
+
+def _iq_conectar():
+    global _iq_api, _iq_conectado
+    if _iq_conectado and _iq_api:
+        return True
+    with _iq_lock_ws:
+        if _iq_conectado and _iq_api:
+            return True
+        try:
+            print("  🔄 Conectando IQ Option (WebSocket)...")
+            api = IQ_Option(IQ_EMAIL, IQ_PASS)
+            if IQ_SSID:
+                _gv.SSID = IQ_SSID
+            check, reason = api.connect()
+            if not check and IQ_SSID:
+                print("  ⚠️ SSID expirado, tentando email/senha...")
+                api2 = IQ_Option(IQ_EMAIL, IQ_PASS)
+                check, reason = api2.connect()
+                api = api2
+            if check:
+                _iq_api       = api
+                _iq_conectado = True
+                print("  ✅ IQ Option WebSocket conectado!")
+                return True
+            print(f"  ❌ IQ Option falhou: {reason}")
+            return False
+        except Exception as e:
+            print(f"  ❌ IQ Option erro: {e}")
+            return False
+
+# ══════════════════════════════════════════════════════════════════
+#  IQ OPTION — REST (fallback)
 # ══════════════════════════════════════════════════════════════════
 _iq_session   = None
 _iq_ssid      = None
