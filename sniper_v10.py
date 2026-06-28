@@ -61,7 +61,7 @@ def tg(msg):
         print(f"  ⚠️ Telegram: {e}")
 
 # ══════════════════════════════════════════════════════════════════
-#  IQ OPTION — WEBSOCKET com SSID e timeout (fonte OTC)
+#  IQ OPTION — WEBSOCKET com SSID (fonte OTC)
 # ══════════════════════════════════════════════════════════════════
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from iqoptionapi.stable_api import IQ_Option
@@ -70,40 +70,40 @@ import iqoptionapi.global_value as _gv
 _iq_api       = None
 _iq_conectado = False
 _iq_lock      = threading.Lock()
+_iq_tentando  = False
+
+def _iq_conectar_bg():
+    """Conecta em background — não bloqueia o loop principal."""
+    global _iq_api, _iq_conectado, _iq_tentando
+    with _iq_lock:
+        if _iq_conectado:
+            return
+        _iq_tentando = True
+        try:
+            print("  🔄 Conectando IQ Option (background)...")
+            api = IQ_Option(IQ_EMAIL, IQ_PASS)
+            if IQ_SSID:
+                _gv.SSID = IQ_SSID
+            check, reason = api.connect()
+            if check:
+                _iq_api       = api
+                _iq_conectado = True
+                print("  ✅ IQ Option conectado!")
+            else:
+                print(f"  ❌ IQ Option falhou: {reason}")
+        except Exception as e:
+            print(f"  ❌ IQ Option erro: {e}")
+        finally:
+            _iq_tentando = False
 
 def _iq_login():
-    """Conecta via WebSocket com timeout de 30s para não travar."""
-    global _iq_api, _iq_conectado
+    """Retorna True se conectado. Dispara conexão em background se necessário."""
+    global _iq_tentando
     if _iq_conectado and _iq_api:
         return True
-    with _iq_lock:
-        if _iq_conectado and _iq_api:
-            return True
-        resultado = [False, None]
-
-        def _tentar():
-            try:
-                api = IQ_Option(IQ_EMAIL, IQ_PASS)
-                if IQ_SSID:
-                    _gv.SSID = IQ_SSID
-                check, reason = api.connect()
-                resultado[0] = check
-                resultado[1] = api if check else None
-            except Exception as e:
-                print(f"  ❌ IQ connect erro: {e}")
-
-        t = threading.Thread(target=_tentar, daemon=True)
-        t.start()
-        t.join(timeout=30)
-
-        if resultado[0] and resultado[1]:
-            _iq_api       = resultado[1]
-            _iq_conectado = True
-            print(f"  ✅ IQ Option WebSocket conectado!")
-            return True
-        else:
-            print(f"  ❌ IQ Option: timeout ou falha na conexão")
-            return False
+    if not _iq_tentando:
+        threading.Thread(target=_iq_conectar_bg, daemon=True).start()
+    return False
 
 def _iq_candles(ativo_id, n=65):
     """Busca velas M1 do ativo OTC via WebSocket."""
@@ -143,7 +143,7 @@ def buscar_velas_otc_batch(pares_otc, n=65):
     resultado = {}
 
     if not _iq_login():
-        print("  ❌ IQ Option indisponível")
+        print("  ⏳ IQ Option ainda conectando, aguardando...")
         return {par["nome"]: [] for par in pares_otc}
 
     for par in pares_otc:
@@ -669,9 +669,9 @@ def main():
     print(f"   Trava   : 1 op por vez em todo o portfólio")
     print()
 
-    # Login IQ Option antecipado (se OTC)
+    # Login IQ Option em background (não bloqueia o loop)
     if is_otc:
-        _iq_login()
+        threading.Thread(target=_iq_login, daemon=True).start()
 
     tg(
         f"🟢 <b>Sniper V10 v5 online!</b>\n\n"
