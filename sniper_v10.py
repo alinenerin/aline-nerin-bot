@@ -61,7 +61,7 @@ def tg(msg):
         print(f"  ⚠️ Telegram: {e}")
 
 # ══════════════════════════════════════════════════════════════════
-#  IQ OPTION — WEBSOCKET (fonte principal OTC)
+#  IQ OPTION — WEBSOCKET com SSID e timeout (fonte OTC)
 # ══════════════════════════════════════════════════════════════════
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from iqoptionapi.stable_api import IQ_Option
@@ -69,96 +69,63 @@ import iqoptionapi.global_value as _gv
 
 _iq_api       = None
 _iq_conectado = False
-_iq_lock_ws   = threading.Lock()
-
-def _iq_conectar():
-    global _iq_api, _iq_conectado
-    if _iq_conectado and _iq_api:
-        return True
-    with _iq_lock_ws:
-        if _iq_conectado and _iq_api:
-            return True
-        try:
-            print("  🔄 Conectando IQ Option (WebSocket)...")
-            api = IQ_Option(IQ_EMAIL, IQ_PASS)
-            if IQ_SSID:
-                _gv.SSID = IQ_SSID
-            check, reason = api.connect()
-            if not check and IQ_SSID:
-                print("  ⚠️ SSID expirado, tentando email/senha...")
-                api2 = IQ_Option(IQ_EMAIL, IQ_PASS)
-                check, reason = api2.connect()
-                api = api2
-            if check:
-                _iq_api       = api
-                _iq_conectado = True
-                print("  ✅ IQ Option WebSocket conectado!")
-                return True
-            print(f"  ❌ IQ Option falhou: {reason}")
-            return False
-        except Exception as e:
-            print(f"  ❌ IQ Option erro: {e}")
-            return False
-
-# ══════════════════════════════════════════════════════════════════
-#  IQ OPTION — REST (fallback)
-# ══════════════════════════════════════════════════════════════════
-_iq_session   = None
-_iq_ssid      = None
 _iq_lock      = threading.Lock()
 
 def _iq_login():
-    global _iq_session, _iq_ssid
-    try:
-        s = requests.Session()
-        r = s.post(
-            "https://auth.iqoption.com/api/v2/login",
-            json={"identifier": IQ_EMAIL, "password": IQ_PASS},
-            timeout=15
-        )
-        token = r.json().get("data", {}).get("ssid", "")
-        if not token and "ssid" in r.cookies:
-            token = r.cookies["ssid"]
-        if token:
-            _iq_session = s
-            _iq_ssid    = token
-            print(f"  ✅ IQ Option login OK (ssid={token[:12]}...)")
+    """Conecta via WebSocket com timeout de 30s para não travar."""
+    global _iq_api, _iq_conectado
+    if _iq_conectado and _iq_api:
+        return True
+    with _iq_lock:
+        if _iq_conectado and _iq_api:
             return True
-        print(f"  ❌ IQ login falhou: {r.text[:200]}")
-        return False
-    except Exception as e:
-        print(f"  ❌ IQ login erro: {e}")
-        return False
+        resultado = [False, None]
 
-def _iq_candles(ativo, n=65):
-    """Busca velas M1 do ativo OTC via IQ Option REST."""
-    global _iq_session, _iq_ssid
-    try:
-        if not _iq_ssid:
-            if not _iq_login():
-                return []
-        agora_ts = int(time.time())
-        url = (
-            f"https://api.iqoption.com/api/sockets/v3/timeframes"
-            f"?active_id={ativo}&size=60&from={agora_ts - 60*n}&to={agora_ts}"
-        )
-        # Usa endpoint de candles público (sem SSID — para ativos OTC)
-        r = _iq_session.get(url, timeout=15)
-        dados = r.json()
-        velas = []
-        for v in dados:
+        def _tentar():
             try:
-                velas.append({
-                    "open":  float(v.get("open", v.get("o", 0))),
-                    "close": float(v.get("close", v.get("c", 0))),
-                    "max":   float(v.get("max", v.get("h", 0))),
-                    "min":   float(v.get("min", v.get("l", 0))),
-                    "t":     v.get("from", v.get("t", 0)),
-                })
-            except: pass
-        return velas
+                api = IQ_Option(IQ_EMAIL, IQ_PASS)
+                if IQ_SSID:
+                    _gv.SSID = IQ_SSID
+                check, reason = api.connect()
+                resultado[0] = check
+                resultado[1] = api if check else None
+            except Exception as e:
+                print(f"  ❌ IQ connect erro: {e}")
+
+        t = threading.Thread(target=_tentar, daemon=True)
+        t.start()
+        t.join(timeout=30)
+
+        if resultado[0] and resultado[1]:
+            _iq_api       = resultado[1]
+            _iq_conectado = True
+            print(f"  ✅ IQ Option WebSocket conectado!")
+            return True
+        else:
+            print(f"  ❌ IQ Option: timeout ou falha na conexão")
+            return False
+
+def _iq_candles(ativo_id, n=65):
+    """Busca velas M1 do ativo OTC via WebSocket."""
+    if not _iq_login():
+        return []
+    try:
+        velas_raw = _iq_api.get_candles(ativo_id, 60, n, time.time())
+        velas = []
+        if velas_raw:
+            for v in velas_raw:
+                try:
+                    velas.append({
+                        "open":  float(v.get("open",  v.get("o", 0))),
+                        "close": float(v.get("close", v.get("c", 0))),
+                        "max":   float(v.get("max",   v.get("h", 0))),
+                        "min":   float(v.get("min",   v.get("l", 0))),
+                        "t":     v.get("from", v.get("t", 0)),
+                    })
+                except: pass
+        return sorted(velas, key=lambda x: x["t"])
     except Exception as e:
-        print(f"  ⚠️ IQ candles erro ({ativo}): {e}")
+        print(f"  ⚠️ IQ candles erro (id={ativo_id}): {e}")
         return []
 
 # Cache para velas OTC
@@ -168,15 +135,15 @@ OTC_CACHE_TTL = 55
 
 def buscar_velas_otc_batch(pares_otc, n=65):
     """
-    Busca velas M1 dos pares OTC via IQ Option WebSocket (get_candles).
+    Busca velas M1 dos pares OTC via IQ Option WebSocket.
     pares_otc: lista de dicts {"nome": "EURUSD-OTC", "id": 76}
     Retorna {nome: [velas]}
     """
     agora_ts = time.time()
     resultado = {}
 
-    if not _iq_conectar():
-        print("  ❌ IQ Option WebSocket indisponível")
+    if not _iq_login():
+        print("  ❌ IQ Option indisponível")
         return {par["nome"]: [] for par in pares_otc}
 
     for par in pares_otc:
@@ -189,80 +156,17 @@ def buscar_velas_otc_batch(pares_otc, n=65):
             resultado[nome] = cached
             continue
 
-        try:
-            raw = _iq_api.get_candles(ativo_id, 60, n, time.time())
-            velas = []
-            if raw:
-                for v in raw:
-                    try:
-                        velas.append({
-                            "open":  float(v.get("open",  v.get("o", 0))),
-                            "close": float(v.get("close", v.get("c", 0))),
-                            "max":   float(v.get("max",   v.get("h", 0))),
-                            "min":   float(v.get("min",   v.get("l", 0))),
-                            "t":     v.get("from", v.get("t", 0)),
-                        })
-                    except:
-                        pass
-                velas = sorted(velas, key=lambda x: x["t"])
-
-            if velas:
-                _otc_cache[nome]    = velas
-                _otc_cache_ts[nome] = agora_ts
-                resultado[nome]     = velas
-                print(f"  📡 OTC {nome}: {len(velas)} velas (WS)")
-            else:
-                resultado[nome] = []
-                print(f"  ⚠️ OTC {nome}: sem dados")
-        except Exception as e:
+        velas = _iq_candles(ativo_id, n)
+        if velas:
+            _otc_cache[nome]    = velas
+            _otc_cache_ts[nome] = agora_ts
+            resultado[nome]     = velas
+            print(f"  📡 OTC {nome}: {len(velas)} velas")
+        else:
             resultado[nome] = []
-            print(f"  ⚠️ OTC {nome} erro WS: {e}")
+            print(f"  ⚠️ OTC {nome}: sem dados")
 
     return resultado
-
-def _buscar_velas_iq_rest(nome, ativo_id, n=65):
-    """Busca velas via endpoint REST público da IQ Option."""
-    global _iq_session, _iq_ssid
-    try:
-        if not _iq_session:
-            _iq_login()
-        if not _iq_session:
-            return []
-
-        agora_ts = int(time.time())
-        inicio   = agora_ts - 60 * (n + 5)
-
-        # Endpoint de candles da IQ Option
-        url = (
-            f"https://api.iqoption.com/api/sockets/v3/candles"
-            f"?active_id={ativo_id}&size=60"
-            f"&from={inicio}&to={agora_ts}&count={n}"
-        )
-        r = _iq_session.get(url, timeout=15)
-        if r.status_code == 401:
-            print(f"  🔄 IQ: sessão expirada, re-login...")
-            _iq_login()
-            r = _iq_session.get(url, timeout=15)
-
-        dados = r.json()
-        # Normaliza diferentes formatos de resposta da IQ
-        if isinstance(dados, dict):
-            dados = dados.get("data", dados.get("candles", dados.get("result", [])))
-        if not isinstance(dados, list):
-            return []
-
-        velas = []
-        for v in dados:
-            try:
-                velas.append({
-                    "open":  float(v.get("open",  v.get("o", 0))),
-                    "close": float(v.get("close", v.get("c", 0))),
-                    "max":   float(v.get("max",   v.get("h", v.get("max", 0)))),
-                    "min":   float(v.get("min",   v.get("l", v.get("min", 0)))),
-                    "t":     v.get("from", v.get("t", v.get("at", 0))),
-                })
-            except: pass
-        return sorted(velas, key=lambda x: x["t"])
 
     except Exception as e:
         print(f"  ⚠️ IQ REST erro {nome}: {e}")
