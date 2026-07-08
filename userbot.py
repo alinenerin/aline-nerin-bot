@@ -1,18 +1,22 @@
 import os, asyncio, logging, random
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
-from groq import AsyncGroq
+from openai import AsyncOpenAI
 from aiohttp import web
 
 # CREDENCIAIS FIXAS (Ly Persona)
 API_ID, API_HASH = 26569107, '997034c44917a26f3458a0e285816997'
 SESSION_STRING = '1AZWarzUBuxaOZ4K0vnFn7_xiaZfNWYjfvxPZMUfDJc7zRzSW20W0RvWKZuBJX3ud8iCH1gEp4IUHiokwCRmTx491dpyWmqp5IWdVsKuYgAgotyqYKU-B1wIgHv85Ql44_N5BW7S7NA4CsevXYYgwjFTmv9YvoyjgCxCDjf9RkzWkKnYKLIKhGY_iaCrKexylyKyOupxaKkfC5Td6mRlUIYMde2NJqWB3yUrbsf-FNkG9A0m6ZPULlLGpJO9lvP2RrPxIWMe9MWMXUzuREf_f9YNnvk5hfSfP7blGhc22SKBVe4CLtZCn3J45jXvWul2JnOcpiA4kGkALqh6RMhda5skYDQSG_KI='
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+MODEL = "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
 PORT = int(os.getenv("PORT", 8080))
 PIX = "17981028959"
 
 logging.basicConfig(level=logging.INFO)
-groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+client_ai = AsyncOpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=OPENROUTER_API_KEY,
+)
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
 # SYSTEM PROMPT: FOCO EM SER HUMANA E VENDEDORA (LY)
@@ -25,12 +29,13 @@ Seu objetivo é vender o Pack (R$25) ou VIP (R$39,90). Pix: 17981028959.
 
 async def get_ai(text):
     try:
-        res = await groq_client.chat.completions.create(
+        res = await client_ai.chat.completions.create(
             messages=[{"role":"system","content":SYSTEM},{"role":"user","content":text}], 
-            model="llama-3.3-70b-versatile"
+            model=MODEL
         )
         return res.choices[0].message.content
-    except:
+    except Exception as e:
+        logging.error(f"Error OpenRouter: {e}")
         return "oi bb... 😏 manda um pix q eu te mostro td 🔥"
 
 @client.on(events.NewMessage(incoming=True))
@@ -57,7 +62,7 @@ async def h(e):
         ans = await get_ai(e.text)
         await e.respond(ans.lower())
 
-async def health(r): return web.Response(text="Ly Online")
+async def health(r): return web.Response(text="Ly Sem Censura Online")
 async def main():
     app = web.Application(); app.router.add_get("/", health)
     runner = web.AppRunner(app); await runner.setup()
