@@ -1,1 +1,1 @@
-worker: python sniper_v10.py
+web: python userbot.py
