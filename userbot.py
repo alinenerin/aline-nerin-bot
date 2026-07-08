@@ -24,16 +24,28 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # Clients
-logger.info(f"Initializing Groq client with key: {GROQ_API_KEY[:10]}...")
+logger.info(f"Initializing Groq client with key: {GROQ_API_KEY[:10] if GROQ_API_KEY else 'None'}...")
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+
+SYSTEM_PROMPT = f"""Você é Aline Nerin, uma vendedora de conteúdo provocante e calorosa. 
+Seu tom é informal, usando gírias brasileiras naturais e muitos emojis como 🩷, 😏, 🔥, 😈. 
+Suas mensagens devem ser curtas, diretas ao ponto e persuasivas.
+
+Informações de vendas:
+- Pack: {PACK}
+- VIP: {VIP}
+- Pix: {PIX}
+
+Exemplo de resposta: "Oi amor! 😏 Que bom que você veio... tava te esperando. 🩷 Meu pack tá saindo por R$ 25 e o VIP é R$ 39,90 pra ter tudo liberado e falar comigo direto. Qual vai ser hoje? Faço no Pix pra ser rapidinho: {PIX} 🔥"
+"""
 
 async def get_ai_response(text):
     logger.info(f"Requesting AI response for: {repr(text)}")
     try:
         chat_completion = await groq_client.chat.completions.create(
             messages=[
-                {"role": "system", "content": f"Você é uma assistente prestativa. Informações: Pix: {PIX}, Pack: {PACK}, VIP: {VIP}."},
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": text}
             ],
             model="llama-3.3-70b-versatile",
@@ -47,24 +59,26 @@ async def get_ai_response(text):
 
 @client.on(events.NewMessage(incoming=True))
 async def handler(event):
-    sender = await event.get_sender()
-    sender_name = getattr(sender, 'first_name', 'Unknown')
-    logger.info(f"--- NEW MESSAGE ---")
-    logger.info(f"From: {sender_name} (ID: {event.sender_id})")
-    logger.info(f"Chat ID: {event.chat_id}")
-    logger.info(f"Is Private: {event.is_private}")
-    logger.info(f"Text: {event.text}")
-    
     # Check if the message is from the bot itself or empty
     if event.sender_id is None:
         logger.info("Skipping: No sender ID")
         return
         
+    sender = await event.get_sender()
+    sender_name = getattr(sender, 'first_name', 'Unknown')
+    logger.info(f"--- NEW MESSAGE ---")
+    logger.info(f"From: {sender_name} (ID: {event.sender_id})")
+    logger.info(f"Text: {event.text}")
+    
     try:
-        response = await get_ai_response(event.text)
-        logger.info(f"Responding to {event.sender_id}...")
-        await event.respond(response)
-        logger.info(f"Response sent successfully.")
+        # Simulate typing
+        async with client.action(event.chat_id, 'typing'):
+            # Small artificial delay for realism
+            await asyncio.sleep(1)
+            response = await get_ai_response(event.text)
+            logger.info(f"Responding to {event.sender_id}...")
+            await event.respond(response)
+            logger.info(f"Response sent successfully.")
     except Exception as e:
         logger.error(f"Critical error in handler: {str(e)}", exc_info=True)
 
