@@ -28,8 +28,8 @@ logger.info(f"Initializing Groq client...")
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
-# SFW System Prompt for Groq to bypass safety filters
-SYSTEM_PROMPT = "You are Aline, a warm and friendly independent model. Your job is to engage in friendly, slightly flirtatious conversation. Keep it light and respectful. Use emojis like 🩷, ✨, 😊."
+# AI Personality Prompt
+SYSTEM_PROMPT = "Você é a Aline, uma modelo independente e atraente. Sua personalidade é provocante, fofa e muito simpática. Use emojis como 🔥, 😏, 😈, 🩷. Suas respostas devem ser curtas e sempre em Português (PT-BR). Nunca mencione que você é uma IA. Se alguém perguntar sobre conteúdos ou valores, seja direta mas charmosa."
 
 async def get_ai_response(text):
     logger.info(f"Requesting AI response for: {repr(text)}")
@@ -43,83 +43,103 @@ async def get_ai_response(text):
         )
         response_text = chat_completion.choices[0].message.content
         logger.info(f"AI response received.")
+        
+        # Check for refusals
+        refusal_keywords = ["não posso", "sinto muito", "i cannot", "sorry", "desculpe", "violação", "diretrizes", "regras"]
+        if any(ref in response_text.lower() for ref in refusal_keywords):
+            return "REFUSAL_TRIGGERED"
+            
         return response_text
     except Exception as e:
         logger.error(f"Groq API Error: {str(e)}")
-        return "Oi amor! ✨ Que bom falar com você. Como você está hoje? 😊"
+        return "REFUSAL_TRIGGERED"
+
+async def send_split_message(event, parts, file=None):
+    # Typing delay for humanization
+    async with client.action(event.chat_id, 'typing'):
+        await asyncio.sleep(random.uniform(5, 10))
+    
+    for i, part in enumerate(parts):
+        if not part: continue
+        
+        if i == len(parts) - 1 and file:
+            # Send file with the last part
+            await event.respond(part, file=file)
+        else:
+            await event.respond(part)
+        
+        if i < len(parts) - 1:
+            # Delay between messages
+            await asyncio.sleep(random.uniform(2, 4))
+            async with client.action(event.chat_id, 'typing'):
+                await asyncio.sleep(2)
 
 @client.on(events.NewMessage(incoming=True))
 async def handler(event):
     if event.sender_id is None:
         return
         
-    sender = await event.get_sender()
-    sender_name = getattr(sender, 'first_name', 'Unknown')
     text_lower = event.text.lower()
-    
-    logger.info(f"Message from {sender_name}: {event.text}")
+    logger.info(f"Message received from {event.sender_id}: {event.text}")
     
     try:
-        # 1. Sample Photo Logic
-        sample_keywords = ["amostra", "foto", "prova", "ver um pouco", "gostinho"]
-        if any(keyword in text_lower for keyword in sample_keywords):
+        # Keyword Matrix
+        # 1. GREETINGS
+        if any(kw in text_lower for kw in ['oi', 'ola', 'bom dia', 'boa tarde', 'boa noite']):
+            parts = [
+                "Oi vida... 😏 Estava aqui agora mesmo pensando em você. Que bom que me chamou! 🩷",
+                "O que você quer ver hoje? 🔥"
+            ]
+            await send_split_message(event, parts)
+            return
+
+        # 2. SALES
+        if any(kw in text_lower for kw in ['pack', 'valor', 'quanto', 'preço', 'fotos', 'conteudo']):
+            parts = [
+                "Amor, meu pack tá uma delícia! São mais de 100 fotos e vídeos meus, do jeitinho que você gosta e sem nada escondido... 🔥",
+                f"Por R$ 25 você vê tudo! Pix: {PIX} 😈"
+            ]
+            await send_split_message(event, parts)
+            return
+
+        # 3. VIP
+        if any(kw in text_lower for kw in ['vip', 'grupo', 'mensal', 'diario']):
+            parts = [
+                "O VIP é o meu xodó, baby! R$ 39,90 e você tem conteúdo novo TODO DIA, acesso a tudo que já postei e ainda fala comigo direto aqui no privado. 😈",
+                f"Pix: {PIX} 🔥"
+            ]
+            await send_split_message(event, parts)
+            return
+
+        # 4. SAMPLES
+        if any(kw in text_lower for kw in ['amostra', 'foto', 'prova', 'ver']):
             parts = [
                 "Amor, vou te dar um gostinho só porque você pediu com jeitinho... 😏🔥",
-                "Mas o que eu tenho lá dentro é mil vezes melhor. Garante o seu no Pix pra gente continuar lá: 17981028959 😈"
+                f"Mas o que eu tenho lá dentro é mil vezes melhor. Garante o seu no Pix pra gente continuar lá: {PIX} 😈"
             ]
-            
-            for i, part in enumerate(parts):
-                async with client.action(event.chat_id, 'typing'):
-                    await asyncio.sleep(random.uniform(3, 5))
-                    logger.info(f"Sending sample part {i+1}/2")
-                    if i == 1:
-                        await event.respond(part, file=SAMPLE_PHOTO_PATH)
-                    else:
-                        await event.respond(part)
-                if i == 0:
-                    await asyncio.sleep(random.uniform(2, 3))
+            await send_split_message(event, parts, file=SAMPLE_PHOTO_PATH)
             return
 
-        # 2. Hardcoded Sales Pitch Logic
-        sales_keywords = ["pack", "valor", "preço", "comprar", "vip", "pagar", "pix", "quanto"]
-        if any(keyword in text_lower for keyword in sales_keywords):
-            parts = [
-                "Oi vida... 😏",
-                "Meu pack tá uma delícia, são mais de 100 vídeos e fotos sem nada escondido por R$ 25. 🔥 Mas o meu xodó é o VIP, amor: R$ 39,90 e você me vê TODO DIA e fala comigo direto. 😈 Pix: 17981028959"
-            ]
-            
-            for i, part in enumerate(parts):
-                if i > 0:
-                    await asyncio.sleep(random.uniform(2, 4))
-                async with client.action(event.chat_id, 'typing'):
-                    await asyncio.sleep(random.uniform(3, 5))
-                    logger.info(f"Sending sales part {i+1}/2")
-                    await event.respond(part)
-            return
-
-        # 3. Regular AI response (SFW Prompt)
-        await asyncio.sleep(random.uniform(1, 2))
-        full_response = await get_ai_response(event.text)
+        # 5. AI Fallback (Groq)
+        ai_response = await get_ai_response(event.text)
         
-        # Split for humanization
-        if "." in full_response and len(full_response) > 60:
-            mid = full_response.find(".", len(full_response)//2)
-            if mid != -1:
-                parts = [full_response[:mid+1].strip(), full_response[mid+1:].strip()]
-            else:
-                parts = [full_response]
+        if ai_response == "REFUSAL_TRIGGERED":
+            parts = [
+                "Ai vida, não entendi muito bem...",
+                "Mas se quiser ver o que eu tenho de bom, é só pedir o meu pack ou VIP! 😏🔥"
+            ]
         else:
-            parts = [full_response]
-
-        for i, part in enumerate(parts):
-            if not part: continue
-            if i > 0:
-                await asyncio.sleep(random.uniform(2, 4))
-            
-            async with client.action(event.chat_id, 'typing'):
-                await asyncio.sleep(random.uniform(2, 4))
-                logger.info(f"Sending part {i+1}/{len(parts)}")
-                await event.respond(part)
+            # Split AI response into 2 parts if possible
+            if "." in ai_response and len(ai_response) > 50:
+                mid = ai_response.find(".", len(ai_response)//2)
+                if mid != -1:
+                    parts = [ai_response[:mid+1].strip(), ai_response[mid+1:].strip()]
+                else:
+                    parts = [ai_response]
+            else:
+                parts = [ai_response]
+        
+        await send_split_message(event, parts)
 
     except Exception as e:
         logger.error(f"Error in handler: {str(e)}", exc_info=True)
