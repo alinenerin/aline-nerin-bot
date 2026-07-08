@@ -1,121 +1,73 @@
 import os
 import asyncio
 import logging
-import sys
-from aiohttp import web
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 from groq import AsyncGroq
-
-# Setup logging to stdout
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stdout
-)
-logger = logging.getLogger(__name__)
+from aiohttp import web
 
 # Configuration
-API_ID = 38147284
-API_HASH = '3b800cbaac2561c038c7d03432adc307'
-STRING_SESSION = '1AZWarzUBuxaOZ4K0vnFn7_xiaZfNWYjfvxPZMUfDJc7zRzSW20W0RvWKZuBJX3ud8iCH1gEp4IUHiokwCRmTx491dpyWmqp5IWdVsKuYgAgotyqYKU-B1wIgHv85Ql44_N5BW7S7NA4CsevXYYgwjFTmv9YvoyjgCxCDjf9RkzWkKnYKLIKhGY_iaCrKexylyKyOupxaKkfC5Td6mRlUIYMde2NJqWB3yUrbsf-FNkG9A0m6ZPULlLGpJO9lvP2RrPxIWMe9MWMXUzuREf_f9YNnvk5hfSfP7blGhc22SKBVe4CLtZCn3J45jXvWul2JnOcpiA4kGkALqh6RMhda5skYDQSG_KI='
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+API_ID = 26569107  
+API_HASH = '997034c44917a26f3458a0e285816997'
+SESSION_STRING = '1AZWarzUBuxaOZ4K0vnFn7_xiaZfNWYjfvxPZMUfDJc7zRzSW20W0RvWKZuBJX3ud8iCH1gEp4IUHiokwCRmTx491dpyWmqp5IWdVsKuYgAgotyqYKU-B1wIgHv85Ql44_N5BW7S7NA4CsevXYYgwjFTmv9YvoyjgCxCDjf9RkzWkKnYKLIKhGY_iaCrKexylyKyOupxaKkfC5Td6mRlUIYMde2NJqWB3yUrbsf-FNkG9A0m6ZPULlLGpJO9lvP2RrPxIWMe9MWMXUzuREf_f9YNnvk5hfSfP7blGhc22SKBVe4CLtZCn3J45jXvWul2JnOcpiA4kGkALqh6RMhda5skYDQSG_KI='
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+PORT = int(os.getenv("PORT", 8080))
 
-# Persona details
-PERSONA_PROMPT = """
-Você é Aline Nerin. Você é simpática, direta e vende conteúdos exclusivos.
-Produtos:
-- Pack: R$ 25
-- VIP: R$ 39,90
-- Pix para pagamento: 17981028959
+# Constants
+PIX = '17981028959'
+PACK = 'R$ 25,00'
+VIP = 'R$ 39,90'
 
-Responda de forma curta, feminina e persuasiva, focando em converter a venda. 
-Não use muitas hashtags. Seja natural.
-"""
+# Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH)
-me = None
+# Clients
+groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
-async def get_groq_response(message_text):
-    print(f"[DEBUG] Calling Groq for: {message_text}")
-    if not GROQ_API_KEY:
-        print("[DEBUG] No GROQ_API_KEY found!")
-        return "Olá! Sou a Aline. No momento estou configurando meu sistema, mas você pode me chamar no Pix 17981028959 para garantir seu Pack (R$25) ou VIP (R$39,90)!"
-    
+async def get_ai_response(text):
     try:
-        groq_client = AsyncGroq(api_key=GROQ_API_KEY)
-        # Updated model to llama-3.3-70b-versatile
-        completion = await groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+        chat_completion = await groq_client.chat.completions.create(
             messages=[
-                {"role": "system", "content": PERSONA_PROMPT},
-                {"role": "user", "content": message_text}
+                {"role": "system", "content": f"Você é uma assistente prestativa. Informações: Pix: {PIX}, Pack: {PACK}, VIP: {VIP}."},
+                {"role": "user", "content": text}
             ],
-            temperature=0.7,
-            max_tokens=200,
+            model="llama-3.3-70b-versatile",
         )
-        resp = completion.choices[0].message.content
-        print(f"[DEBUG] Groq response: {resp}")
-        return resp
+        return chat_completion.choices[0].message.content
     except Exception as e:
-        print(f"[DEBUG] Error calling Groq: {e}")
-        logger.error(f"Error calling Groq: {e}")
-        return "Oi! Desculpa, tive um probleminha aqui. Mas ó, meu VIP tá R$39,90 e o Pack R$25. Pix: 17981028959 💖"
+        logger.error(f"Groq Error: {e}")
+        return "Desculpe, estou passando por uma instabilidade momentânea. Pode repetir?"
 
 @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
-async def handle_private_message(event):
-    global me
-    print(f"[DEBUG] New message from {event.sender_id}: {event.text}")
-    try:
-        if me is None:
-            me = await client.get_me()
-            
-        # Avoid replying to bots or self
-        if event.sender_id == me.id:
-            print("[DEBUG] Message is from myself, ignoring.")
-            return
-            
-        logger.info(f"Received message from {event.sender_id}: {event.text}")
-        response = await get_groq_response(event.text)
-        print(f"[DEBUG] Replying with: {response}")
-        await event.reply(response)
-        logger.info(f"Replied to {event.sender_id}")
-    except Exception as e:
-        print(f"[DEBUG] Error in handle_private_message: {e}")
-        logger.error(f"Error in handle_private_message: {e}")
+async def handler(event):
+    logger.info(f"Message from {event.sender_id}: {event.text}")
+    response = await get_ai_response(event.text)
+    await event.respond(response)
 
-# Health check server
-async def handle_health_check(request):
-    return web.Response(text="Bot is running")
+# Health Check Server
+async def health_check(request):
+    return web.Response(text="OK")
 
 async def start_server():
     app = web.Application()
-    app.router.add_get('/', handle_health_check)
-    port = int(os.environ.get("PORT", 8080))
+    app.router.add_get("/", health_check)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', port)
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
     await site.start()
-    logger.info(f"Health check server started on port {port}")
-    print(f"[DEBUG] Health check server started on port {port}")
-    return runner, site
+    logger.info(f"Health check server started on port {PORT}")
 
 async def main():
-    global me
-    print("[DEBUG] Starting main...")
-    # Start health check server
-    _runner, _site = await start_server()
-    
-    # Start Telegram client
-    print("[DEBUG] Starting Telegram client...")
     await client.start()
-    me = await client.get_me()
-    logger.info(f"Userbot is online as {me.first_name}!")
-    print(f"[DEBUG] Userbot is online as {me.first_name} (@{me.username})")
+    logger.info("Userbot started!")
     
-    # Keep the script running
-    print("[DEBUG] Running until disconnected...")
+    # Run health check server in background
+    asyncio.create_task(start_server())
+    
+    # Run until disconnected
     await client.run_until_disconnected()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())
