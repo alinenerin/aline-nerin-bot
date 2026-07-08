@@ -1,13 +1,18 @@
 import os
 import asyncio
 import logging
+import sys
 from aiohttp import web
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 from groq import AsyncGroq
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+# Setup logging to stdout
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -32,13 +37,16 @@ client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH)
 me = None
 
 async def get_groq_response(message_text):
+    print(f"[DEBUG] Calling Groq for: {message_text}")
     if not GROQ_API_KEY:
+        print("[DEBUG] No GROQ_API_KEY found!")
         return "Olá! Sou a Aline. No momento estou configurando meu sistema, mas você pode me chamar no Pix 17981028959 para garantir seu Pack (R$25) ou VIP (R$39,90)!"
     
     try:
         groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+        # Updated model to llama-3.3-70b-versatile
         completion = await groq_client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": PERSONA_PROMPT},
                 {"role": "user", "content": message_text}
@@ -46,27 +54,34 @@ async def get_groq_response(message_text):
             temperature=0.7,
             max_tokens=200,
         )
-        return completion.choices[0].message.content
+        resp = completion.choices[0].message.content
+        print(f"[DEBUG] Groq response: {resp}")
+        return resp
     except Exception as e:
+        print(f"[DEBUG] Error calling Groq: {e}")
         logger.error(f"Error calling Groq: {e}")
         return "Oi! Desculpa, tive um probleminha aqui. Mas ó, meu VIP tá R$39,90 e o Pack R$25. Pix: 17981028959 💖"
 
 @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
 async def handle_private_message(event):
     global me
+    print(f"[DEBUG] New message from {event.sender_id}: {event.text}")
     try:
         if me is None:
             me = await client.get_me()
             
         # Avoid replying to bots or self
         if event.sender_id == me.id:
+            print("[DEBUG] Message is from myself, ignoring.")
             return
             
         logger.info(f"Received message from {event.sender_id}: {event.text}")
         response = await get_groq_response(event.text)
+        print(f"[DEBUG] Replying with: {response}")
         await event.reply(response)
         logger.info(f"Replied to {event.sender_id}")
     except Exception as e:
+        print(f"[DEBUG] Error in handle_private_message: {e}")
         logger.error(f"Error in handle_private_message: {e}")
 
 # Health check server
@@ -82,19 +97,24 @@ async def start_server():
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
     logger.info(f"Health check server started on port {port}")
+    print(f"[DEBUG] Health check server started on port {port}")
     return runner, site
 
 async def main():
     global me
+    print("[DEBUG] Starting main...")
     # Start health check server
     _runner, _site = await start_server()
     
     # Start Telegram client
+    print("[DEBUG] Starting Telegram client...")
     await client.start()
     me = await client.get_me()
     logger.info(f"Userbot is online as {me.first_name}!")
+    print(f"[DEBUG] Userbot is online as {me.first_name} (@{me.username})")
     
     # Keep the script running
+    print("[DEBUG] Running until disconnected...")
     await client.run_until_disconnected()
 
 if __name__ == '__main__':
