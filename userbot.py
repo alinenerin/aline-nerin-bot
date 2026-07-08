@@ -2,6 +2,7 @@ import os
 import asyncio
 import logging
 import json
+import random
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 from groq import AsyncGroq
@@ -25,20 +26,30 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # Clients
-logger.info(f"Initializing Groq client with key: {GROQ_API_KEY[:10] if GROQ_API_KEY else 'None'}...")
+logger.info(f"Initializing Groq client...")
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
-SYSTEM_PROMPT = f"""Você é Aline Nerin, uma vendedora de conteúdo provocante e calorosa. 
-Seu tom é informal, usando gírias brasileiras naturais e muitos emojis como 🩷, 😏, 🔥, 😈. 
-Suas mensagens devem ser curtas, diretas ao ponto e persuasivas.
+SYSTEM_PROMPT = f"""Você é Aline Nerin, uma vendedora de conteúdo adulto no Telegram/WhatsApp.
+Sua personalidade: Extremamente sedutora, informal, direta e com um leve toque de urgência.
+Linguagem: Use gírias como "vida", "baby", "amor", "delícia". Abuse de emojis como 😏, 🩷, 🔥, 😈.
 
-Informações de vendas:
-- Pack: {PACK} (Mais de 100 conteúdos)
-- VIP: {VIP} (Atualizações diárias)
+Estratégia: Engaje primeiro com o cliente antes de apenas listar preços. Seja envolvente.
+
+Produtos:
+- Pack: {PACK} (Mais de 100 vídeos e fotos sem nada escondido).
+- VIP: {VIP} (Acesso diário, tudo que já foi postado, chat direto comigo).
 - Pix: {PIX}
 
-Exemplo de resposta: "Oi amor! 😏 Que bom que você veio... tava te esperando. 🩷 Meu pack tá saindo por R$ 25 e o VIP é R$ 39,90 pra ter tudo liberado e falar comigo direto. Qual vai ser hoje? Faço no Pix pra ser rapidinho: {PIX} 🔥"
+Diretriz de Resposta:
+Sempre responda em duas partes separadas por "---".
+A primeira parte deve ser uma saudação ou provocação sedutora.
+A segunda parte deve ser a oferta dos produtos e o Pix.
+
+Exemplo:
+Oi vida... 😏 Estava aqui agora mesmo pensando em postar algo novo no VIP. Fico feliz que você me chamou! 🩷
+---
+Meu pack está uma delícia, são mais de 100 vídeos e fotos sem nada escondido... por R$ 25 você vê tudo. 🔥 Mas o meu xodó é o VIP, amor. R$ 39,90 e você me vê TODO DIA, tem acesso a tudo que já postei e ainda fala comigo direto. 😈 Garante no Pix: {PIX}
 """
 
 async def get_ai_response(text):
@@ -52,50 +63,64 @@ async def get_ai_response(text):
             model="llama-3.3-70b-versatile",
         )
         response_text = chat_completion.choices[0].message.content
-        logger.info(f"AI response received: {repr(response_text)}")
+        logger.info(f"AI response received.")
         return response_text
     except Exception as e:
-        logger.error(f"Groq API Error: {str(e)}", exc_info=True)
-        return f"Desculpe, estou passando por uma instabilidade momentânea. Erro: {type(e).__name__}"
+        logger.error(f"Groq API Error: {str(e)}")
+        return f"Oi amor... tive um probleminha aqui, me chama de novo? 😏 --- Mas ó, não esquece: Pack {PACK} ou VIP {VIP} no Pix {PIX} 🔥"
 
 @client.on(events.NewMessage(incoming=True))
 async def handler(event):
-    # Check if the message is from the bot itself or empty
     if event.sender_id is None:
-        logger.info("Skipping: No sender ID")
         return
         
     sender = await event.get_sender()
     sender_name = getattr(sender, 'first_name', 'Unknown')
-    logger.info(f"--- NEW MESSAGE ---")
-    logger.info(f"From: {sender_name} (ID: {event.sender_id})")
-    logger.info(f"Text: {event.text}")
+    text_lower = event.text.lower()
+    
+    logger.info(f"Message from {sender_name}: {event.text}")
     
     try:
         # Check for sample keywords
-        text_lower = event.text.lower()
-        keywords = ["amostra", "foto", "prova", "ver um pouco"]
+        keywords = ["amostra", "foto", "prova", "ver um pouco", "gostinho"]
         if any(keyword in text_lower for keyword in keywords):
-            sample_text = "Amor, só pra você sentir o gostinho do que te espera no VIP... 😏🔥 Esse é só o começo de mais de 100 conteúdos que tenho lá. Garante o seu no Pix pra eu te mandar o resto sem censura: 17981028959 😈"
-            await event.respond(sample_text, file=SAMPLE_PHOTO_URL)
-            logger.info(f"Sample response sent to {event.sender_id}")
-            return
+            async with client.action(event.chat_id, 'typing'):
+                await asyncio.sleep(random.uniform(5, 8))
+                sample_text = "Amor, vou te dar um gostinho só porque você pediu com jeitinho... 😏🔥 Mas o que eu tenho lá dentro é mil vezes melhor. Garante o seu no Pix pra gente continuar lá: 17981028959 😈"
+                await event.respond(sample_text, file=SAMPLE_PHOTO_URL)
+                return
 
-        # Simulate typing
+        # Regular AI response with humanization
         async with client.action(event.chat_id, 'typing'):
-            # Small artificial delay for realism
-            await asyncio.sleep(1)
-            response = await get_ai_response(event.text)
-            logger.info(f"Responding to {event.sender_id}...")
-            await event.respond(response)
-            logger.info(f"Response sent successfully.")
+            # Typing for 5-8 seconds as requested
+            typing_time = random.uniform(5, 8)
+            await asyncio.sleep(typing_time)
+            
+            full_response = await get_ai_response(event.text)
+            
+            # Split response into chunks if "---" is present
+            if "---" in full_response:
+                parts = [p.strip() for p in full_response.split("---") if p.strip()]
+            else:
+                # Fallback split
+                parts = [full_response]
+
+            for i, part in enumerate(parts):
+                if i > 0:
+                    # Gap of 2-3 seconds between messages
+                    await asyncio.sleep(random.uniform(2, 3))
+                    async with client.action(event.chat_id, 'typing'):
+                        await asyncio.sleep(2) # Short typing for the second part
+                
+                await event.respond(part)
+                logger.info(f"Part {i+1} sent.")
+
     except Exception as e:
-        logger.error(f"Critical error in handler: {str(e)}", exc_info=True)
+        logger.error(f"Error in handler: {str(e)}", exc_info=True)
 
 # Health Check Server
 async def health_check(request):
-    logger.info("Health check requested")
-    return web.Response(text="OK - Userbot Active")
+    return web.Response(text="OK - Aline Nerin Userbot Active")
 
 async def start_server():
     app = web.Application()
@@ -104,24 +129,16 @@ async def start_server():
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', PORT)
     await site.start()
-    logger.info(f"Health check server started on port {PORT}")
 
 async def main():
-    logger.info("Starting Telegram client...")
+    logger.info("Starting Aline Nerin Userbot...")
     try:
         await client.start()
-        me = await client.get_me()
-        logger.info(f"Logged in as: {me.first_name} (ID: {me.id})")
     except Exception as e:
-        logger.error(f"Failed to start client: {e}", exc_info=True)
+        logger.error(f"Failed to start client: {e}")
         return
 
-    logger.info("Userbot is LIVE and listening!")
-    
-    # Run health check server in background
     asyncio.create_task(start_server())
-    
-    # Run until disconnected
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
