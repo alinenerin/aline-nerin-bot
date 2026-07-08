@@ -2,3 +2,4 @@ telethon
 groq
 aiohttp
 requests
+openai
