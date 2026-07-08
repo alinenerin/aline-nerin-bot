@@ -63,66 +63,62 @@ async def handler(event):
         # 1. Sample Photo Logic
         sample_keywords = ["amostra", "foto", "prova", "ver um pouco", "gostinho"]
         if any(keyword in text_lower for keyword in sample_keywords):
-            async with client.action(event.chat_id, 'typing'):
-                await asyncio.sleep(random.uniform(5, 8))
-                
-                parts = [
-                    "Amor, vou te dar um gostinho só porque você pediu com jeitinho... 😏🔥",
-                    "Mas o que eu tenho lá dentro é mil vezes melhor. Garante o seu no Pix pra gente continuar lá: 17981028959 😈"
-                ]
-                
-                for i, part in enumerate(parts):
+            parts = [
+                "Amor, vou te dar um gostinho só porque você pediu com jeitinho... 😏🔥",
+                "Mas o que eu tenho lá dentro é mil vezes melhor. Garante o seu no Pix pra gente continuar lá: 17981028959 😈"
+            ]
+            
+            for i, part in enumerate(parts):
+                async with client.action(event.chat_id, 'typing'):
+                    await asyncio.sleep(random.uniform(3, 5))
+                    logger.info(f"Sending sample part {i+1}/2")
                     if i == 1:
-                        # Send second part with photo
                         await event.respond(part, file=SAMPLE_PHOTO_PATH)
                     else:
                         await event.respond(part)
-                        # Short delay between split messages
-                        await asyncio.sleep(random.uniform(2, 4))
-                        async with client.action(event.chat_id, 'typing'):
-                            await asyncio.sleep(2)
-                return
+                if i == 0:
+                    await asyncio.sleep(random.uniform(2, 3))
+            return
 
         # 2. Hardcoded Sales Pitch Logic
         sales_keywords = ["pack", "valor", "preço", "comprar", "vip", "pagar", "pix", "quanto"]
         if any(keyword in text_lower for keyword in sales_keywords):
-            async with client.action(event.chat_id, 'typing'):
-                await asyncio.sleep(random.uniform(5, 8))
-                
-                parts = [
-                    "Oi vida... 😏",
-                    "Meu pack tá uma delícia, são mais de 100 vídeos e fotos sem nada escondido por R$ 25. 🔥 Mas o meu xodó é o VIP, amor: R$ 39,90 e você me vê TODO DIA e fala comigo direto. 😈 Pix: 17981028959"
-                ]
-                
-                for i, part in enumerate(parts):
-                    if i > 0:
-                        await asyncio.sleep(random.uniform(2, 4))
-                        async with client.action(event.chat_id, 'typing'):
-                            await asyncio.sleep(2)
-                    await event.respond(part)
-                return
-
-        # 3. Regular AI response (SFW Prompt)
-        async with client.action(event.chat_id, 'typing'):
-            await asyncio.sleep(random.uniform(5, 8))
-            full_response = await get_ai_response(event.text)
+            parts = [
+                "Oi vida... 😏",
+                "Meu pack tá uma delícia, são mais de 100 vídeos e fotos sem nada escondido por R$ 25. 🔥 Mas o meu xodó é o VIP, amor: R$ 39,90 e você me vê TODO DIA e fala comigo direto. 😈 Pix: 17981028959"
+            ]
             
-            # Split for humanization
-            if "." in full_response and len(full_response) > 60:
-                mid = full_response.find(".", len(full_response)//2)
-                if mid != -1:
-                    parts = [full_response[:mid+1].strip(), full_response[mid+1:].strip()]
-                else:
-                    parts = [full_response]
-            else:
-                parts = [full_response]
-
             for i, part in enumerate(parts):
-                if not part: continue
                 if i > 0:
                     await asyncio.sleep(random.uniform(2, 4))
-                    async with client.action(event.chat_id, 'typing'):
-                        await asyncio.sleep(2)
+                async with client.action(event.chat_id, 'typing'):
+                    await asyncio.sleep(random.uniform(3, 5))
+                    logger.info(f"Sending sales part {i+1}/2")
+                    await event.respond(part)
+            return
+
+        # 3. Regular AI response (SFW Prompt)
+        await asyncio.sleep(random.uniform(1, 2))
+        full_response = await get_ai_response(event.text)
+        
+        # Split for humanization
+        if "." in full_response and len(full_response) > 60:
+            mid = full_response.find(".", len(full_response)//2)
+            if mid != -1:
+                parts = [full_response[:mid+1].strip(), full_response[mid+1:].strip()]
+            else:
+                parts = [full_response]
+        else:
+            parts = [full_response]
+
+        for i, part in enumerate(parts):
+            if not part: continue
+            if i > 0:
+                await asyncio.sleep(random.uniform(2, 4))
+            
+            async with client.action(event.chat_id, 'typing'):
+                await asyncio.sleep(random.uniform(2, 4))
+                logger.info(f"Sending part {i+1}/{len(parts)}")
                 await event.respond(part)
 
     except Exception as e:
