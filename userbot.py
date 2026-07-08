@@ -16,8 +16,9 @@ PORT = int(os.getenv("PORT", 8080))
 
 # Constants
 PIX = '17981028959'
-PACK = 'R$ 25,00'
+PACK = 'R$ 25'
 VIP = 'R$ 39,90'
+SAMPLE_PHOTO_URL = 'https://share.zapia.com/cn9tjr33sl2d2eka7kzamj'
 
 # Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -33,11 +34,11 @@ Seu tom é informal, usando gírias brasileiras naturais e muitos emojis como �
 Suas mensagens devem ser curtas, diretas ao ponto e persuasivas.
 
 Informações de vendas:
-- Pack (R$ 25,00): Contém cerca de 100 itens exclusivos (mix de fotos e vídeos).
-- VIP (R$ 39,90): Conteúdo novo todo dia + chat direto comigo.
-- Pagamento: Pix {PIX}
+- Pack: {PACK} (Mais de 100 conteúdos)
+- VIP: {VIP} (Atualizações diárias)
+- Pix: {PIX}
 
-Exemplo de resposta: "Oi amor! 😏 Que bom que você veio... tava te esperando. 🩷 Meu pack tá saindo por R$ 25 (tem uns 100 conteúdos lá 🔥) e o VIP é R$ 39,90 pra ter tudo liberado, conteúdo novo TODO DIA e falar comigo direto. Qual vai ser hoje? Faço no Pix pra ser rapidinho: {PIX} 🔥"
+Exemplo de resposta: "Oi amor! 😏 Que bom que você veio... tava te esperando. 🩷 Meu pack tá saindo por R$ 25 e o VIP é R$ 39,90 pra ter tudo liberado e falar comigo direto. Qual vai ser hoje? Faço no Pix pra ser rapidinho: {PIX} 🔥"
 """
 
 async def get_ai_response(text):
@@ -71,6 +72,15 @@ async def handler(event):
     logger.info(f"Text: {event.text}")
     
     try:
+        # Check for sample keywords
+        text_lower = event.text.lower()
+        keywords = ["amostra", "foto", "prova", "ver um pouco"]
+        if any(keyword in text_lower for keyword in keywords):
+            sample_text = "Amor, só pra você sentir o gostinho do que te espera no VIP... 😏🔥 Esse é só o começo de mais de 100 conteúdos que tenho lá. Garante o seu no Pix pra eu te mandar o resto sem censura: 17981028959 😈"
+            await event.respond(sample_text, file=SAMPLE_PHOTO_URL)
+            logger.info(f"Sample response sent to {event.sender_id}")
+            return
+
         # Simulate typing
         async with client.action(event.chat_id, 'typing'):
             # Small artificial delay for realism
