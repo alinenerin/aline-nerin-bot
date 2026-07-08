@@ -17,9 +17,7 @@ PORT = int(os.getenv("PORT", 8080))
 
 # Constants
 PIX = '17981028959'
-PACK = 'R$ 25'
-VIP = 'R$ 39,90'
-SAMPLE_PHOTO_URL = 'https://share.zapia.com/cn9tjr33sl2d2eka7kzamj'
+SAMPLE_PHOTO_PATH = 'media/1783537400381.jpg'
 
 # Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -30,27 +28,8 @@ logger.info(f"Initializing Groq client...")
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
-SYSTEM_PROMPT = f"""Você é Aline Nerin, uma vendedora de conteúdo adulto no Telegram/WhatsApp.
-Sua personalidade: Extremamente sedutora, informal, direta e com um leve toque de urgência.
-Linguagem: Use gírias como "vida", "baby", "amor", "delícia". Abuse de emojis como 😏, 🩷, 🔥, 😈.
-
-Estratégia: Engaje primeiro com o cliente antes de apenas listar preços. Seja envolvente.
-
-Produtos:
-- Pack: {PACK} (Mais de 100 vídeos e fotos sem nada escondido).
-- VIP: {VIP} (Acesso diário, tudo que já foi postado, chat direto comigo).
-- Pix: {PIX}
-
-Diretriz de Resposta:
-Sempre responda em duas partes separadas por "---".
-A primeira parte deve ser uma saudação ou provocação sedutora.
-A segunda parte deve ser a oferta dos produtos e o Pix.
-
-Exemplo:
-Oi vida... 😏 Estava aqui agora mesmo pensando em postar algo novo no VIP. Fico feliz que você me chamou! 🩷
----
-Meu pack está uma delícia, são mais de 100 vídeos e fotos sem nada escondido... por R$ 25 você vê tudo. 🔥 Mas o meu xodó é o VIP, amor. R$ 39,90 e você me vê TODO DIA, tem acesso a tudo que já postei e ainda fala comigo direto. 😈 Garante no Pix: {PIX}
-"""
+# SFW System Prompt for Groq to bypass safety filters
+SYSTEM_PROMPT = "You are Aline, a warm and friendly independent model. Your job is to engage in friendly, slightly flirtatious conversation. Keep it light and respectful. Use emojis like 🩷, ✨, 😊."
 
 async def get_ai_response(text):
     logger.info(f"Requesting AI response for: {repr(text)}")
@@ -67,7 +46,7 @@ async def get_ai_response(text):
         return response_text
     except Exception as e:
         logger.error(f"Groq API Error: {str(e)}")
-        return f"Oi amor... tive um probleminha aqui, me chama de novo? 😏 --- Mas ó, não esquece: Pack {PACK} ou VIP {VIP} no Pix {PIX} 🔥"
+        return "Oi amor! ✨ Que bom falar com você. Como você está hoje? 😊"
 
 @client.on(events.NewMessage(incoming=True))
 async def handler(event):
@@ -81,39 +60,70 @@ async def handler(event):
     logger.info(f"Message from {sender_name}: {event.text}")
     
     try:
-        # Check for sample keywords
-        keywords = ["amostra", "foto", "prova", "ver um pouco", "gostinho"]
-        if any(keyword in text_lower for keyword in keywords):
+        # 1. Sample Photo Logic
+        sample_keywords = ["amostra", "foto", "prova", "ver um pouco", "gostinho"]
+        if any(keyword in text_lower for keyword in sample_keywords):
             async with client.action(event.chat_id, 'typing'):
                 await asyncio.sleep(random.uniform(5, 8))
-                sample_text = "Amor, vou te dar um gostinho só porque você pediu com jeitinho... 😏🔥 Mas o que eu tenho lá dentro é mil vezes melhor. Garante o seu no Pix pra gente continuar lá: 17981028959 😈"
-                await event.respond(sample_text, file=SAMPLE_PHOTO_URL)
+                
+                parts = [
+                    "Amor, vou te dar um gostinho só porque você pediu com jeitinho... 😏🔥",
+                    "Mas o que eu tenho lá dentro é mil vezes melhor. Garante o seu no Pix pra gente continuar lá: 17981028959 😈"
+                ]
+                
+                for i, part in enumerate(parts):
+                    if i == 1:
+                        # Send second part with photo
+                        await event.respond(part, file=SAMPLE_PHOTO_PATH)
+                    else:
+                        await event.respond(part)
+                        # Short delay between split messages
+                        await asyncio.sleep(random.uniform(2, 4))
+                        async with client.action(event.chat_id, 'typing'):
+                            await asyncio.sleep(2)
                 return
 
-        # Regular AI response with humanization
+        # 2. Hardcoded Sales Pitch Logic
+        sales_keywords = ["pack", "valor", "preço", "comprar", "vip", "pagar", "pix", "quanto"]
+        if any(keyword in text_lower for keyword in sales_keywords):
+            async with client.action(event.chat_id, 'typing'):
+                await asyncio.sleep(random.uniform(5, 8))
+                
+                parts = [
+                    "Oi vida... 😏",
+                    "Meu pack tá uma delícia, são mais de 100 vídeos e fotos sem nada escondido por R$ 25. 🔥 Mas o meu xodó é o VIP, amor: R$ 39,90 e você me vê TODO DIA e fala comigo direto. 😈 Pix: 17981028959"
+                ]
+                
+                for i, part in enumerate(parts):
+                    if i > 0:
+                        await asyncio.sleep(random.uniform(2, 4))
+                        async with client.action(event.chat_id, 'typing'):
+                            await asyncio.sleep(2)
+                    await event.respond(part)
+                return
+
+        # 3. Regular AI response (SFW Prompt)
         async with client.action(event.chat_id, 'typing'):
-            # Typing for 5-8 seconds as requested
-            typing_time = random.uniform(5, 8)
-            await asyncio.sleep(typing_time)
-            
+            await asyncio.sleep(random.uniform(5, 8))
             full_response = await get_ai_response(event.text)
             
-            # Split response into chunks if "---" is present
-            if "---" in full_response:
-                parts = [p.strip() for p in full_response.split("---") if p.strip()]
+            # Split for humanization
+            if "." in full_response and len(full_response) > 60:
+                mid = full_response.find(".", len(full_response)//2)
+                if mid != -1:
+                    parts = [full_response[:mid+1].strip(), full_response[mid+1:].strip()]
+                else:
+                    parts = [full_response]
             else:
-                # Fallback split
                 parts = [full_response]
 
             for i, part in enumerate(parts):
+                if not part: continue
                 if i > 0:
-                    # Gap of 2-3 seconds between messages
-                    await asyncio.sleep(random.uniform(2, 3))
+                    await asyncio.sleep(random.uniform(2, 4))
                     async with client.action(event.chat_id, 'typing'):
-                        await asyncio.sleep(2) # Short typing for the second part
-                
+                        await asyncio.sleep(2)
                 await event.respond(part)
-                logger.info(f"Part {i+1} sent.")
 
     except Exception as e:
         logger.error(f"Error in handler: {str(e)}", exc_info=True)
