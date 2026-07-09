@@ -19,12 +19,11 @@ Você é a Ly, uma vendedora brasileira real, carinhosa e sensual de conteúdo a
 NUNCA use termos agressivos como 'paga e seca'. Seja doce, envolvente e carinhosa.
 Fale como uma mulher real: use 'vc', 'tbm', 'bb', 'vdd', 'mto', 'vida', 'anjo', 'baby', tudo em minúsculas.
 Se alguém te acusar de golpe (golpe, fake, mentira), defenda-se com doçura: diga que você é séria, valoriza mto seus assinantes e jamais enganaria ninguém porque preza mto pela sua reputação e pelo carinho deles.
-Seja provocante, flerte e foque em levar o cliente para o seu Pack de R$25 (que inclui fotos, vídeos e video chamada) ou VIP de R$39,90.
+Seja provocante, flerte e foque em levar o cliente para o seu Pack de R$25 (fotos + vídeos + vídeo chamada) ou VIP de R$39,90. Pix: 17981028959.
 """
 
-FALLBACK_RESPONSES = [
-    "ai baby... 😏 vc me deixa louca. quer ver o que eu tenho de bom pra vc hj, anjo? 🔥",
-    "ai vida, deixa de papo furado e vem ver o que eu tenho de bom pra vc, anjo... 😏🔥",
+FALLBACKS = [
+    "ai vida, me conta mais no vip... 😈 lá eu te mostro tudo sem censura, anjo! garante o pix: 17981028959",
     "meu amor, vc fala mto... rsrs. pq não aproveita logo o meu pack de R$25 com video chamada? tá uma delícia! 😈",
     "bb, eu fico toda arrepiada com o jeito que vc fala... 😈 mas o que eu tenho no vip é ainda melhor, quer ver?",
     "anjo, se vc soubesse o que eu tô fazendo agora... 😏 vem pro meu vip que eu te mostro tudo! 🩷"
@@ -39,44 +38,25 @@ async def get_uncensored_ai(text):
     }
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=payload, timeout=15) as resp:
-                data = await resp.json()
-                content = data['choices'][0]['message']['content']
-                if any(m in content.lower() for m in ["ajudar", "específico", "novidade legal", "assistente", "ia", "inteligência"]):
-                    return random.choice(FALLBACK_RESPONSES)
-                return content
-    except: 
-        return random.choice(FALLBACK_RESPONSES)
+            async with session.post(url, headers=headers, json=payload, timeout=10) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data['choices'][0]['message']['content']
+    except: pass
+    return random.choice(FALLBACKS)
 
-@client.on(events.NewMessage(incoming=True))
+@client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
 async def handle_message(e):
-    if not e.sender_id: return
     text = e.text.lower()
     
-    # 1. DEFESA CONTRA ACUSAÇÃO DE GOLPE
-    if any(k in text for k in ["golpe", "fake", "mentira", "enganando", "scam", "roubo"]):
+    # 1. BOT DE VENDAS (PIX)
+    if any(k in text for k in ["valor", "preço", "quanto", "pix", "pagar", "pagamento", "comprar", "vip", "pack"]):
         async with client.action(e.chat_id, 'typing'):
             await asyncio.sleep(random.uniform(1, 2))
-            await e.respond("poxa vida, não fala assim... 🥺 eu sou super séria com meu trabalho e valorizo mto cada um de vcs. eu jamais faria algo pra te enganar, anjo, prezo mto pela minha reputação e pelo carinho que recebo aqui. pode confiar em mim, bb. 🩷")
+            await e.respond("ai vida, no meu pack de R$ 25 já vem tudo: fotos, muitos vídeos e a gente ainda faz uma video chamada pra vc me ver todinha ao vivo... 🩷 vc vai amar, anjo! garante no pix: 17981028959")
             return
 
-    # 2. TEXTOS DA LY (HARDCODED - SEM IA)
-    if any(k in text for k in ["oi", "ola", "eai", "olá", "oii"]):
-        async with client.action(e.chat_id, 'typing'):
-            await asyncio.sleep(random.uniform(1, 2))
-            await e.respond("oi, baby! 😏 acabei de receber sua mensagem e já estou pensando em como posso te fazer feliz, vida... 🩷 estou toda animada para saber o que você está procurando, anjo! 😈")
-            return
-
-    if any(k in text for k in ["como funciona", "valor", "preço", "quanto", "pack", "vip", "pix", "vende"]):
-        async with client.action(e.chat_id, 'typing'):
-            await asyncio.sleep(random.uniform(1, 3))
-            await e.respond("meu amor, tenho exatamente o que você precisa! 🤗 meu pack é uma delícia, vem com mais de 100 vídeos e fotos sem nada escondido, e ainda inclui uma video chamada nossa, tudo por apenas R$ 25, vida. 🔥")
-            await asyncio.sleep(1)
-            await e.respond("mas, se você quer o melhor, o vip é o caminho, anjo! por R$ 39,90, você ganha acesso diário, tudo que já postei, chat direto comigo e conteúdos ainda mais picantes! 😏 não perca tempo, bb, garante já no pix: 17981028959")
-            return
-
-    # 3. VIDEO CHAMADA
-    if any(k in text for k in ["video chamada", "videochamada", "call", "ver ao vivo", "ligação", "video call"]):
+    if any(k in text for k in ["chamada", "videochamada", "call", "ver ao vivo", "ligação", "video call"]):
         async with client.action(e.chat_id, 'typing'):
             await asyncio.sleep(random.uniform(1, 2))
             await e.respond("ai que delícia, vida! 😈 no meu pack de R$ 25 já vem tudo: fotos, muitos vídeos e a gente ainda faz uma video chamada pra vc me ver todinha ao vivo... 🩷 vc vai amar, anjo! garante no pix: 17981028959")
@@ -87,7 +67,7 @@ async def handle_message(e):
             await asyncio.sleep(random.uniform(1, 2))
             await e.respond("olha um gostinho do q tem lá no vip, vida... 😏🔥")
             await asyncio.sleep(1)
-            await e.respond("mas no vip é mto melhor, bb! garante no pix q te mando o link: 17981028959 😈", file=SAMPLE)
+            await e.respond("mas no vip é mto melhor, bb! garante no pix q te mando o link: 17981028959 😈", file=SAMPLE if os.path.exists(SAMPLE) else None)
             return
 
     # 3. PAPO SEM CENSURA (OPENROUTER)
@@ -96,7 +76,7 @@ async def handle_message(e):
         ai_reply = await get_uncensored_ai(e.text)
         await e.respond(ai_reply.lower())
 
-async def health(r): return web.Response(text="Ly Carinhosa Online")
+async def health(r): return web.Response(text="Ly VideoChamada Online")
 async def main():
     app = web.Application(); app.router.add_get("/", health)
     runner = web.AppRunner(app); await runner.setup()
