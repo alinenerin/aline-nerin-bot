@@ -89,8 +89,12 @@ async def main():
     await site.start()
     logging.info(f"Health check running on port {PORT}")
     
-    await client.start()
-    logging.info("Telethon client started")
+    await client.connect()
+    logging.info("Telethon client connected")
+    if not await client.is_user_authorized():
+        logging.error("Session is NOT authorized! Please check SESSION_STRING.")
+    else:
+        logging.info("Session is authorized!")
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
