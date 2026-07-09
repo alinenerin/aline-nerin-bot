@@ -30,6 +30,7 @@ FALLBACKS = [
 ]
 
 async def get_uncensored_ai(text):
+    if not OPENROUTER_API_KEY: return random.choice(FALLBACKS)
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"}
     payload = {
@@ -47,7 +48,7 @@ async def get_uncensored_ai(text):
 
 @client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
 async def handle_message(e):
-    text = e.text.lower()
+    text = (e.text or "").lower()
     
     # 1. BOT DE VENDAS (PIX)
     if any(k in text for k in ["valor", "preço", "quanto", "pix", "pagar", "pagamento", "comprar", "vip", "pack"]):
@@ -59,7 +60,7 @@ async def handle_message(e):
     if any(k in text for k in ["chamada", "videochamada", "call", "ver ao vivo", "ligação", "video call"]):
         async with client.action(e.chat_id, 'typing'):
             await asyncio.sleep(random.uniform(1, 2))
-            await e.respond("ai que delícia, vida! 😈 no meu pack de R$ 25 já vem tudo: fotos, muitos vídeos e a gente ainda faz uma video chamada pra vc me ver todinha ao vivo... 🩷 vc vai amar, anjo! garante no pix: 17981028959")
+            await e.respond("ai que delícia, vida! 😈 no meu pack de R$ 25 ya vem tudo: fotos, muitos vídeos e a gente ainda faz uma video chamada pra vc me ver todinha ao vivo... 🩷 vc vai amar, anjo! garante no pix: 17981028959")
             return
 
     if any(k in text for k in ["amostra", "foto", "prova", "foto agora", "sim", "me mostra"]):
@@ -67,7 +68,8 @@ async def handle_message(e):
             await asyncio.sleep(random.uniform(1, 2))
             await e.respond("olha um gostinho do q tem lá no vip, vida... 😏🔥")
             await asyncio.sleep(1)
-            await e.respond("mas no vip é mto melhor, bb! garante no pix q te mando o link: 17981028959 😈", file=SAMPLE if os.path.exists(SAMPLE) else None)
+            f = SAMPLE if os.path.exists(SAMPLE) else None
+            await e.respond("mas no vip é mto melhor, bb! garante no pix q te mando o link: 17981028959 😈", file=f)
             return
 
     # 3. PAPO SEM CENSURA (OPENROUTER)
@@ -77,11 +79,19 @@ async def handle_message(e):
         await e.respond(ai_reply.lower())
 
 async def health(r): return web.Response(text="Ly VideoChamada Online")
+
 async def main():
-    app = web.Application(); app.router.add_get("/", health)
-    runner = web.AppRunner(app); await runner.setup()
-    await web.TCPSite(runner, '0.0.0.0', PORT).start()
-    await client.start(); await client.run_until_disconnected()
+    server = web.Application()
+    server.router.add_get("/", health)
+    runner = web.AppRunner(server)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
+    await site.start()
+    logging.info(f"Health check running on port {PORT}")
+    
+    await client.start()
+    logging.info("Telethon client started")
+    await client.run_until_disconnected()
 
 if __name__ == "__main__":
     asyncio.run(main())
