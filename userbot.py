@@ -50,7 +50,6 @@ async def get_uncensored_ai(text):
 async def handle_message(e):
     text = (e.text or "").lower()
     
-    # 1. BOT DE VENDAS (PIX)
     if any(k in text for k in ["valor", "preço", "quanto", "pix", "pagar", "pagamento", "comprar", "vip", "pack"]):
         async with client.action(e.chat_id, 'typing'):
             await asyncio.sleep(random.uniform(1, 2))
@@ -72,7 +71,6 @@ async def handle_message(e):
             await e.respond("mas no vip é mto melhor, bb! garante no pix q te mando o link: 17981028959 😈", file=f)
             return
 
-    # 3. PAPO SEM CENSURA (OPENROUTER)
     async with client.action(e.chat_id, 'typing'):
         await asyncio.sleep(random.uniform(2, 4))
         ai_reply = await get_uncensored_ai(e.text)
@@ -89,13 +87,22 @@ async def main():
     await site.start()
     logging.info(f"Health check running on port {PORT}")
     
-    await client.connect()
-    logging.info("Telethon client connected")
-    if not await client.is_user_authorized():
-        logging.error("Session is NOT authorized! Please check SESSION_STRING.")
-    else:
-        logging.info("Session is authorized!")
-    await client.run_until_disconnected()
+    try:
+        await client.connect()
+        logging.info("Telethon client connected")
+        if not await client.is_user_authorized():
+            logging.error("SESSION NOT AUTHORIZED")
+        else:
+            logging.info("SESSION AUTHORIZED")
+        
+        # This keeps the loop running even if not authorized
+        await client.run_until_disconnected()
+    except Exception as e:
+        logging.error(f"Error: {e}")
+    
+    # Final fallback to keep the process alive for Render
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
     asyncio.run(main())
