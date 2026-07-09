@@ -22,19 +22,31 @@ Se alguém te acusar de golpe (golpe, fake, mentira), defenda-se com doçura: di
 Seja provocante, flerte e foque em levar o cliente para o seu Pack de R$25 ou VIP de R$39,90.
 """
 
+FALLBACK_RESPONSES = [
+    "ai baby... 😏 vc me deixa louca. quer ver o que eu tenho de bom pra vc hj, anjo? 🔥",
+    "ai vida, deixa de papo furado e vem ver o que eu tenho de bom pra vc, anjo... 😏🔥",
+    "meu amor, vc fala mto... rsrs. pq não aproveita logo o meu pack de R$25? tá uma delícia! 😈",
+    "bb, eu fico toda arrepiada com o jeito que vc fala... 😈 mas o que eu tenho no vip é ainda melhor, quer ver?",
+    "anjo, se vc soubesse o que eu tô fazendo agora... 😏 vem pro meu vip que eu te mostro tudo! 🩷"
+]
+
 async def get_uncensored_ai(text):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"}
     payload = {
-        "model": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+        "model": "mistralai/pixtral-12b:free",
         "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": text}]
     }
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=payload) as resp:
+            async with session.post(url, headers=headers, json=payload, timeout=15) as resp:
                 data = await resp.json()
-                return data['choices'][0]['message']['content']
-    except: return "ai baby... 😏 vc me deixa louca. quer ver o que eu tenho de bom pra vc hj, anjo? 🔥"
+                content = data['choices'][0]['message']['content']
+                if any(m in content.lower() for m in ["ajudar", "específico", "novidade legal", "assistente", "ia", "inteligência"]):
+                    return random.choice(FALLBACK_RESPONSES)
+                return content
+    except: 
+        return random.choice(FALLBACK_RESPONSES)
 
 @client.on(events.NewMessage(incoming=True))
 async def handle_message(e):
@@ -55,7 +67,7 @@ async def handle_message(e):
             await e.respond("oi, baby! 😏 acabei de receber sua mensagem e já estou pensando em como posso te fazer feliz, vida... 🩷 estou toda animada para saber o que você está procurando, anjo! 😈")
             return
 
-    if any(k in text for k in ["como funciona", "valor", "preço", "quanto", "pack", "vip", "pix"]):
+    if any(k in text for k in ["como funciona", "valor", "preço", "quanto", "pack", "vip", "pix", "vende"]):
         async with client.action(e.chat_id, 'typing'):
             await asyncio.sleep(random.uniform(1, 3))
             await e.respond("meu amor, tenho exatamente o que você precisa! 🤗 meu pack é uma delícia, vem com mais de 100 vídeos e fotos sem nada escondido, tudo por R$ 25, vida. 🔥")
@@ -63,7 +75,7 @@ async def handle_message(e):
             await e.respond("mas, se você quer o melhor, o vip é o caminho, anjo! por R$ 39,90, você ganha acesso diário, tudo que já postei e ainda tem chat direto comigo, eu mesma! 😏 não perca tempo, bb, garante já no pix: 17981028959")
             return
 
-    if any(k in text for k in ["amostra", "foto", "prova", "foto agora"]):
+    if any(k in text for k in ["amostra", "foto", "prova", "foto agora", "sim", "me mostra"]):
         async with client.action(e.chat_id, 'typing'):
             await asyncio.sleep(random.uniform(1, 2))
             await e.respond("olha um gostinho do q tem lá no vip, vida... 😏🔥")
@@ -71,15 +83,10 @@ async def handle_message(e):
             await e.respond("mas no vip é mto melhor, bb! garante no pix q te mando o link: 17981028959 😈", file=SAMPLE)
             return
 
-    # 3. PAPO SEM CENSURA (OPENROUTER DOLPHIN)
+    # 3. PAPO SEM CENSURA (OPENROUTER)
     async with client.action(e.chat_id, 'typing'):
         await asyncio.sleep(random.uniform(2, 4))
         ai_reply = await get_uncensored_ai(e.text)
-        
-        # Filtro final para garantir que não saia bobagem de ajuda
-        if any(m in ai_reply.lower() for m in ["ajudar", "específico", "novidade legal", "assistente"]):
-            ai_reply = "ai vida, deixa de papo furado e vem ver o que eu tenho de bom pra vc, anjo... 😏🔥"
-        
         await e.respond(ai_reply.lower())
 
 async def health(r): return web.Response(text="Ly Carinhosa Online")
