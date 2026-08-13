@@ -1,0 +1,6 @@
+ly_memory.sqlite3
+*.session
+.env
+.env.*
+__pycache__/
+*.pyc
