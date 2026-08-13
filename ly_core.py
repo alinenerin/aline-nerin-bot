@@ -6,6 +6,7 @@ consentimento e aplicar rate limit. Nenhum segredo fica neste arquivo.
 from dataclasses import dataclass
 from pathlib import Path
 import json
+import re
 import sqlite3
 import time
 
@@ -49,7 +50,7 @@ class LyMemory:
 
 def classify(text):
     t = text.lower().strip()
-    if any(x in t for x in ("não quero", "nao quero", "pare", "stop", "remover")): return "opt_out"
+    if any(x in t for x in ("não quero", "nao quero", "stop", "remover")) or re.search(r"\bpare\b", t): return "opt_out"
     if any(x in t for x in ("comprovante", "paguei", "pagamento feito")): return "comprovante"
     if any(x in t for x in ("golpe", "fake", "fraude", "confiável", "confiavel")): return "desconfianca"
     if any(x in t for x in ("amostra", "prévia", "previa", "prova", "mostra")): return "amostra"
