@@ -5,6 +5,7 @@ Esta branch contém apenas o núcleo comercial da Ly. A integração com Telegra
 ## Regras atuais
 - Pack: R$ 25 — 25 fotos, 75 vídeos e vídeo chamada combinada.
 - VIP: R$ 39,90 — pagamento único, acesso permanente ao grupo, fotos, vídeos e vídeos ao vivo dentro do grupo.
+- O Pack é entregue por um link privado do Google Drive após validação do pagamento.
 - Pagamento e comprovante exigem validação antes da liberação.
 - Opt-out encerra o contato.
 - Menoridade, reclamação e reembolso são encaminhados/encerrados.
